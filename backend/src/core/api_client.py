@@ -288,6 +288,66 @@ class OpenMetadataClient:
             
         except Exception as e:
             raise OpenMetadataConnectionError(f"Search API error: {e}")
+    
+    def get_table_versions(
+        self,
+        table_id: str,
+        limit: int = 30
+    ) -> list[dict[str, Any]]:
+        """
+        Get historical versions of a table for trend analysis.
+        
+        Args:
+            table_id: UUID of the table
+            limit: Maximum number of versions to retrieve
+        
+        Returns:
+            List of table versions (newest first)
+        """
+        if self._client is None:
+            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        
+        try:
+            response = self._client.client.get(
+                f"/tables/{table_id}/versions"
+            )
+            
+            versions = response.get("versions", [])
+            return versions[:limit]
+            
+        except Exception as e:
+            raise OpenMetadataConnectionError(f"API error fetching table versions: {e}")
+    
+    def get_test_case_results(
+        self,
+        table_fqn: str
+    ) -> list[dict[str, Any]]:
+        """
+        Get data quality test case results for a table.
+        
+        Args:
+            table_fqn: Fully qualified name of the table
+        
+        Returns:
+            List of test case results
+        """
+        if self._client is None:
+            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        
+        try:
+            # Search for test cases associated with this table
+            response = self._client.client.get(
+                "/dataQuality/testCases",
+                data={
+                    "entityLink": f"<#E::table::{table_fqn}>",
+                    "fields": "testCaseResult,testDefinition"
+                }
+            )
+            
+            return response.get("data", [])
+            
+        except Exception as e:
+            raise OpenMetadataConnectionError(f"API error fetching test cases: {e}")
 
 
 # Singleton instance

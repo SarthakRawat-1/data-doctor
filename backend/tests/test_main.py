@@ -1,4 +1,4 @@
-"""Tests for main application and API endpoints."""
+"""Tests for main application root endpoint."""
 import pytest
 from httpx import AsyncClient
 
@@ -14,12 +14,20 @@ async def test_root_endpoint(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_health_check(client: AsyncClient):
-    """Test health check endpoint."""
-    response = await client.get("/api/v1/health")
-    assert response.status_code == 200
+async def test_root_endpoint_structure(client: AsyncClient):
+    """Test root endpoint response structure."""
+    response = await client.get("/")
     data = response.json()
-    assert data["status"] == "healthy"
-    assert "app_name" in data
+    
+    # Verify required fields
+    assert "message" in data
     assert "version" in data
-    assert "openmetadata_connected" in data
+    assert "docs" in data
+    
+    # Verify types
+    assert isinstance(data["message"], str)
+    assert isinstance(data["version"], str)
+    assert isinstance(data["docs"], str)
+    
+    # Verify docs link
+    assert data["docs"] == "/docs"

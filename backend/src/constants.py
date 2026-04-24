@@ -8,6 +8,8 @@ class AnomalyType(StrEnum):
     STALE_DATA = "stale_data"
     SCHEMA_CHANGE = "schema_change"
     DATA_QUALITY_FAILURE = "data_quality_failure"
+    VOLUME_ANOMALY = "volume_anomaly"
+    DISTRIBUTION_DRIFT = "distribution_drift"
 
 
 class Severity(StrEnum):
@@ -46,4 +48,16 @@ DEPTH_ONE_BOOST = 0.2
 NOISE_PENALTY = 0.1
 
 # High-signal anomaly types for confidence scoring
-HIGH_SIGNAL_TYPES = [AnomalyType.PIPELINE_FAILURE, AnomalyType.SCHEMA_CHANGE]
+HIGH_SIGNAL_TYPES = [AnomalyType.PIPELINE_FAILURE, AnomalyType.SCHEMA_CHANGE, AnomalyType.VOLUME_ANOMALY]
+
+# Data freshness SLA (hours)
+DEFAULT_FRESHNESS_SLA_HOURS = 48
+
+# Volume anomaly detection thresholds (standard deviations)
+VOLUME_ANOMALY_STD_DEV_THRESHOLD = 2.0
+VOLUME_ANOMALY_MIN_HISTORY_DAYS = 7
+
+# Distribution drift detection thresholds
+DISTRIBUTION_DRIFT_NULL_THRESHOLD = 0.15  # 15% change in null proportion
+DISTRIBUTION_DRIFT_DISTINCT_THRESHOLD = 0.30  # 30% change in distinct count
+DISTRIBUTION_DRIFT_MIN_HISTORY_DAYS = 7
