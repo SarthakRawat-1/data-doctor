@@ -1,0 +1,49 @@
+[project]
+name = "data-doctor"
+version = "0.1.0"
+description = "Intelligent diagnostic system for OpenMetadata data pipelines - Root cause analysis, impact assessment, and automated fix suggestions"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Data Doctor Team" }
+]
+keywords = ["openmetadata", "data-observability", "data-quality", "lineage", "root-cause-analysis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "fastapi[standard]>=0.136.1",
+    "openmetadata-ingestion>=1.12.6.2",
+    "pydantic>=2.11.10",
+    "pydantic-settings>=2.14.0",
+    "uvicorn>=0.46.0",
+    "python-dotenv>=1.2.2",
+    "cachetools>=7.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.28.1",
+    "ruff>=0.6.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
