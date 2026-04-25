@@ -37,6 +37,20 @@ class Settings(BaseSettings):
         default="sample_data.ecommerce_db.shopify.dim_customer",
         description="Pre-staged FQN for demo scenario"
     )
+    
+    # Phase 5: AI Enhancement Layer Configuration
+    GROQ_API_KEY: str = Field(
+        default="",
+        description="Groq API key for LLM formatting"
+    )
+    GROQ_MODEL: str = Field(
+        default="llama-3.3-70b-versatile",
+        description="Groq model to use for text generation"
+    )
+    SLACK_WEBHOOK_URL: str = Field(
+        default="",
+        description="Slack incoming webhook URL for notifications"
+    )
 
 
 settings = Settings()

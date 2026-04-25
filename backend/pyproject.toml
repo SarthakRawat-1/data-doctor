@@ -23,6 +23,8 @@ dependencies = [
     "uvicorn>=0.46.0",
     "python-dotenv>=1.2.2",
     "cachetools>=7.0.6",
+    "groq>=0.15.0",
+    "slack-sdk>=3.34.0",
 ]
 
 [project.optional-dependencies]

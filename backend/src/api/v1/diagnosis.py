@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from src.api.dependencies import MetadataClientDep
 from src.config import settings
 from src.constants import AnomalyType, Severity
+from src.core.ai_layer import enhance_suggestions_with_ai
 from src.core.confidence import calculate_confidence_score
 from src.core.detection import evaluate_asset_anomalies
 from src.core.impact import compute_blast_radius_by_fqn
@@ -26,7 +27,8 @@ router = APIRouter()
 @router.post("/diagnose", response_model=DiagnosisResponse)
 async def diagnose_asset(
     request: DiagnosisRequest,
-    metadata_client: MetadataClientDep
+    metadata_client: MetadataClientDep,
+    enhance_with_ai: bool = False  # ← NEW: Optional AI enhancement
 ):
     """
     Diagnose an asset for anomalies and root causes.
@@ -37,6 +39,7 @@ async def diagnose_asset(
     3. **Phase 3 (Confidence)**: Calculate confidence score
     4. **Phase 3 (Impact)**: Perform downstream impact analysis
     5. **Phase 4 (Suggestions)**: Generate fix recommendations
+    6. **Phase 5 (Optional)**: AI-enhance suggestions with context
     
     **Algorithm (from data_doctor.md Section 10):**
     - Fetch target entity from OpenMetadata
@@ -46,8 +49,14 @@ async def diagnose_asset(
     - Calculate downstream blast radius
     - Map anomalies to fix actions
     - Calculate severity based on impact
+    - Optionally enhance with AI (if enhance_with_ai=true)
     
-    **Phase 4 Implementation**
+    **Phase 4 + 5 Implementation**
+    
+    Args:
+        request: Diagnosis request with target FQN
+        metadata_client: OpenMetadata client (injected)
+        enhance_with_ai: If True, use AI to add context-aware suggestions
     """
     start_time = time.time()
     
@@ -110,7 +119,7 @@ async def diagnose_asset(
         # Step 5: Calculate severity based on blast radius
         severity = _calculate_severity(impacted_assets)
         
-        # Step 6: Generate fix suggestions
+        # Step 6: Generate fix suggestions (deterministic)
         suggested_fixes = generate_suggested_fixes(
             primary_cause=primary_cause,
             contributing_factors=contributing_factors
@@ -120,7 +129,7 @@ async def diagnose_asset(
         execution_time_ms = (time.time() - start_time) * 1000
         
         # Build response
-        return DiagnosisResponse(
+        diagnosis = DiagnosisResponse(
             incident_id=str(uuid4()),
             target_asset=request.target_fqn,
             severity=severity,
@@ -132,6 +141,20 @@ async def diagnose_asset(
             timestamp=datetime.utcnow(),
             execution_time_ms=execution_time_ms
         )
+        
+        # Step 7 (Optional): AI-enhance suggestions with context
+        if enhance_with_ai and settings.GROQ_API_KEY:
+            try:
+                enhanced_fixes = enhance_suggestions_with_ai(
+                    base_fixes=suggested_fixes,
+                    diagnosis=diagnosis
+                )
+                diagnosis.suggested_fixes = enhanced_fixes
+            except Exception as e:
+                # If AI enhancement fails, continue with base suggestions
+                print(f"AI enhancement failed, using base suggestions: {e}")
+        
+        return diagnosis
     
     except HTTPException:
         raise
