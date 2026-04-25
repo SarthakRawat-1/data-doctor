@@ -348,6 +348,65 @@ class OpenMetadataClient:
             
         except Exception as e:
             raise OpenMetadataConnectionError(f"API error fetching test cases: {e}")
+    
+    def patch_entity_tag(
+        self,
+        entity_type: str,
+        entity_id: str,
+        tag_fqn: str
+    ) -> bool:
+        """
+        Add a governance tag to an entity.
+        
+        Uses OpenMetadata SDK's patch_tag method to apply classification tags
+        to assets for governance and data quality tracking.
+        
+        Phase 5+ Governance Enhancement.
+        
+        Args:
+            entity_type: Type of entity ("table", "pipeline", "dashboard")
+            entity_id: UUID of the entity
+            tag_fqn: Fully qualified tag name (e.g., "DataQuality.Critical")
+        
+        Returns:
+            True if successful
+        
+        Raises:
+            OpenMetadataConnectionError: If tagging fails
+        
+        Reference: https://docs.open-metadata.org/latest/sdk/python/ingestion/tags
+        """
+        if self._client is None:
+            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        
+        try:
+            # Import entity classes
+            from metadata.generated.schema.entity.data.table import Table
+            from metadata.generated.schema.entity.data.pipeline import Pipeline
+            from metadata.generated.schema.entity.data.dashboard import Dashboard
+            
+            # Map string to entity class
+            entity_class_map = {
+                "table": Table,
+                "pipeline": Pipeline,
+                "dashboard": Dashboard,
+            }
+            
+            entity_class = entity_class_map.get(entity_type.lower())
+            if not entity_class:
+                raise ValueError(f"Unsupported entity type for tagging: {entity_type}")
+            
+            # Use SDK's patch_tag method
+            self._client.patch_tag(
+                entity=entity_class,
+                entity_id=entity_id,
+                tag_fqn=tag_fqn
+            )
+            
+            return True
+            
+        except Exception as e:
+            raise OpenMetadataConnectionError(f"Failed to patch tag '{tag_fqn}' on {entity_type} {entity_id}: {e}")
 
 
 # Singleton instance

@@ -28,7 +28,8 @@ router = APIRouter()
 async def diagnose_asset(
     request: DiagnosisRequest,
     metadata_client: MetadataClientDep,
-    enhance_with_ai: bool = False  # ← NEW: Optional AI enhancement
+    enhance_with_ai: bool = False,  # Optional AI enhancement
+    apply_governance_tags: bool = False  # ← NEW: Optional governance tagging
 ):
     """
     Diagnose an asset for anomalies and root causes.
@@ -40,6 +41,7 @@ async def diagnose_asset(
     4. **Phase 3 (Impact)**: Perform downstream impact analysis
     5. **Phase 4 (Suggestions)**: Generate fix recommendations
     6. **Phase 5 (Optional)**: AI-enhance suggestions with context
+    7. **Phase 5+ (Optional)**: Apply governance tags to mark unreliable assets
     
     **Algorithm (from data_doctor.md Section 10):**
     - Fetch target entity from OpenMetadata
@@ -50,13 +52,15 @@ async def diagnose_asset(
     - Map anomalies to fix actions
     - Calculate severity based on impact
     - Optionally enhance with AI (if enhance_with_ai=true)
+    - Optionally tag assets (if apply_governance_tags=true)
     
-    **Phase 4 + 5 Implementation**
+    **Phase 4 + 5 + 5+ Implementation**
     
     Args:
         request: Diagnosis request with target FQN
         metadata_client: OpenMetadata client (injected)
         enhance_with_ai: If True, use AI to add context-aware suggestions
+        apply_governance_tags: If True, automatically tag assets with governance labels
     """
     start_time = time.time()
     
@@ -153,6 +157,32 @@ async def diagnose_asset(
             except Exception as e:
                 # If AI enhancement fails, continue with base suggestions
                 print(f"AI enhancement failed, using base suggestions: {e}")
+        
+        # Step 8 (Optional): Apply governance tags
+        if apply_governance_tags or settings.ENABLE_GOVERNANCE_TAGGING:
+            try:
+                from src.core.governance import tag_unreliable_assets
+                
+                tagged_counts = tag_unreliable_assets(
+                    metadata_client=metadata_client,
+                    diagnosis=diagnosis,
+                    tag_impacted_assets=settings.TAG_IMPACTED_ASSETS
+                )
+                
+                # Log tagging results
+                print(f"Governance tagging completed: "
+                      f"{tagged_counts['target']} target, "
+                      f"{tagged_counts['root_cause']} root cause, "
+                      f"{tagged_counts['impacted']} impacted assets")
+                
+                if tagged_counts['errors']:
+                    print(f"Tagging errors: {len(tagged_counts['errors'])}")
+                    for error in tagged_counts['errors'][:3]:  # Show first 3 errors
+                        print(f"  - {error}")
+                        
+            except Exception as e:
+                # Don't fail diagnosis if tagging fails
+                print(f"Governance tagging failed: {e}")
         
         return diagnosis
     

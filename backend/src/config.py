@@ -51,6 +51,20 @@ class Settings(BaseSettings):
         default="",
         description="Slack incoming webhook URL for notifications"
     )
+    
+    # Phase 5+: Governance Tagging Configuration (Optional)
+    ENABLE_GOVERNANCE_TAGGING: bool = Field(
+        default=False,
+        description="Enable automatic governance tagging of unreliable assets"
+    )
+    GOVERNANCE_TAG_CLASSIFICATION: str = Field(
+        default="DataQuality",
+        description="Classification name for governance tags"
+    )
+    TAG_IMPACTED_ASSETS: bool = Field(
+        default=True,
+        description="Whether to tag downstream impacted assets"
+    )
 
 
 settings = Settings()
