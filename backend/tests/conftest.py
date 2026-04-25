@@ -5,6 +5,10 @@ from httpx import AsyncClient, ASGITransport
 from src.main import app
 
 
+# Configure pytest-asyncio
+pytest_plugins = ('pytest_asyncio',)
+
+
 @pytest.fixture
 async def client() -> AsyncClient:
     """Create an async test client."""
