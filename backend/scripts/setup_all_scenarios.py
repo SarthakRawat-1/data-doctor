@@ -11,8 +11,8 @@ import time
 import mysql.connector
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add backend directory to path so we can import from src
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import the multi-dataset setup functions
 from setup_multi_dataset_demo import (
@@ -133,20 +133,40 @@ def apply_scenario_to_database(dataset_name: str, scenario_name: str, port: int)
         
         # Apply scenario-specific SQL
         if scenario_name == "schema_change":
+            # MySQL doesn't support DROP COLUMN IF EXISTS, so we need to check first
             if dataset_name == "ecommerce":
-                cursor.execute("ALTER TABLE dim_customer DROP COLUMN IF EXISTS country")
+                # Check if column exists before dropping
+                cursor.execute("SHOW COLUMNS FROM dim_customer LIKE 'country'")
+                if cursor.fetchone():
+                    cursor.execute("ALTER TABLE dim_customer DROP COLUMN country")
             elif dataset_name == "healthcare":
-                cursor.execute("ALTER TABLE dim_patient DROP COLUMN IF EXISTS blood_type")
+                cursor.execute("SHOW COLUMNS FROM dim_patient LIKE 'blood_type'")
+                if cursor.fetchone():
+                    cursor.execute("ALTER TABLE dim_patient DROP COLUMN blood_type")
             elif dataset_name == "finance":
-                cursor.execute("ALTER TABLE dim_account DROP COLUMN IF EXISTS credit_score")
+                cursor.execute("SHOW COLUMNS FROM dim_account LIKE 'credit_score'")
+                if cursor.fetchone():
+                    cursor.execute("ALTER TABLE dim_account DROP COLUMN credit_score")
                 
         elif scenario_name == "data_quality":
+            # Create data quality issues by violating constraints
+            # First, let's check what data exists and create violations carefully
             if dataset_name == "ecommerce":
-                cursor.execute("UPDATE dim_customer SET email = 'duplicate@example.com' WHERE customer_id IN (1, 2, 3, 4, 5)")
+                # Set multiple customers to same email (violates unique constraint)
+                # Use a value that doesn't exist yet to avoid immediate duplicate key error
+                cursor.execute("UPDATE dim_customer SET email = 'intentional_duplicate@test.com' WHERE customer_id = 1")
+                cursor.execute("UPDATE dim_customer SET email = 'intentional_duplicate@test.com' WHERE customer_id = 2")
+                cursor.execute("UPDATE dim_customer SET email = NULL WHERE customer_id IN (3, 4, 5)")
             elif dataset_name == "healthcare":
-                cursor.execute("UPDATE dim_patient SET medical_record_number = 'MRN00000001' WHERE patient_id IN (1, 2, 3, 4, 5)")
+                # Set multiple patients to same MRN (violates unique constraint)
+                cursor.execute("UPDATE dim_patient SET medical_record_number = 'MRN_DUPLICATE_TEST' WHERE patient_id = 1")
+                cursor.execute("UPDATE dim_patient SET medical_record_number = 'MRN_DUPLICATE_TEST' WHERE patient_id = 2")
+                cursor.execute("UPDATE dim_patient SET email = NULL WHERE patient_id IN (3, 4, 5)")
             elif dataset_name == "finance":
-                cursor.execute("UPDATE dim_account SET account_number = 'ACC0000000001' WHERE account_id IN (1, 2, 3, 4, 5)")
+                # Set multiple accounts to same account number (violates unique constraint)
+                cursor.execute("UPDATE dim_account SET account_number = 'ACC_DUPLICATE_TEST' WHERE account_id = 1")
+                cursor.execute("UPDATE dim_account SET account_number = 'ACC_DUPLICATE_TEST' WHERE account_id = 2")
+                cursor.execute("UPDATE dim_account SET email = NULL WHERE account_id IN (3, 4, 5)")
                 
         elif scenario_name == "volume_anomaly":
             if dataset_name == "ecommerce":
@@ -167,16 +187,31 @@ def apply_scenario_to_database(dataset_name: str, scenario_name: str, port: int)
         elif scenario_name == "multiple":
             # Apply schema_change + volume_anomaly + distribution_drift
             if dataset_name == "ecommerce":
-                cursor.execute("ALTER TABLE dim_customer DROP COLUMN IF EXISTS country")
+                # Schema change
+                cursor.execute("SHOW COLUMNS FROM dim_customer LIKE 'country'")
+                if cursor.fetchone():
+                    cursor.execute("ALTER TABLE dim_customer DROP COLUMN country")
+                # Volume anomaly
                 cursor.execute("DELETE FROM fact_orders WHERE order_id % 2 = 0")
+                # Distribution drift
                 cursor.execute("UPDATE dim_customer SET email = NULL WHERE customer_id % 5 = 0")
             elif dataset_name == "healthcare":
-                cursor.execute("ALTER TABLE dim_patient DROP COLUMN IF EXISTS blood_type")
+                # Schema change
+                cursor.execute("SHOW COLUMNS FROM dim_patient LIKE 'blood_type'")
+                if cursor.fetchone():
+                    cursor.execute("ALTER TABLE dim_patient DROP COLUMN blood_type")
+                # Volume anomaly
                 cursor.execute("DELETE FROM fact_visit WHERE visit_id % 2 = 0")
+                # Distribution drift
                 cursor.execute("UPDATE dim_patient SET email = NULL WHERE patient_id % 5 = 0")
             elif dataset_name == "finance":
-                cursor.execute("ALTER TABLE dim_account DROP COLUMN IF EXISTS credit_score")
+                # Schema change
+                cursor.execute("SHOW COLUMNS FROM dim_account LIKE 'credit_score'")
+                if cursor.fetchone():
+                    cursor.execute("ALTER TABLE dim_account DROP COLUMN credit_score")
+                # Volume anomaly
                 cursor.execute("DELETE FROM fact_transaction WHERE transaction_id % 2 = 0")
+                # Distribution drift
                 cursor.execute("UPDATE dim_account SET email = NULL WHERE account_id % 5 = 0")
         
         conn.commit()
@@ -213,27 +248,27 @@ def setup_scenario(dataset_name: str, scenario_name: str):
     
     try:
         # Step 1: Create service
-        print_step("1/6", "Creating database service...")
+        print_step("1/8", "Creating database service...")
         create_database_service(config)
         time.sleep(2)
         
         # Step 2: Apply scenario to database BEFORE ingestion
-        print_step("2/6", "Applying scenario to database...")
+        print_step("2/8", "Applying scenario to database...")
         apply_scenario_to_database(dataset_name, scenario_name, scenario_config["port"])
         time.sleep(2)
         
         # Step 3: Run metadata ingestion
-        print_step("3/6", "Running metadata ingestion...")
+        print_step("3/8", "Running metadata ingestion...")
         run_metadata_ingestion(config)
         time.sleep(2)
         
         # Step 4: Run profiler
-        print_step("4/6", "Running profiler...")
+        print_step("4/8", "Running profiler...")
         run_profiler(config)
         time.sleep(2)
         
         # Step 5: Add lineage
-        print_step("5/6", "Adding lineage...")
+        print_step("5/8", "Adding lineage...")
         add_lineage(config)
         time.sleep(1)
         

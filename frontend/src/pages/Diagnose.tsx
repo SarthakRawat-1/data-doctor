@@ -218,7 +218,6 @@ export function Diagnose() {
         >
           <div className="text-left">
             <h2 className="font-header text-2xl font-bold text-white mb-2 flex items-center gap-3">
-              <span className="text-3xl">🎮</span>
               Interactive Demo Mode
             </h2>
             <p className="text-[var(--color-text-muted)]">
@@ -370,7 +369,7 @@ export function Diagnose() {
                 </div>
                 {selectedScenario !== "clean" && (
                   <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400 font-mono">
-                    ℹ️ Scenario "{selectedScenario}" is pre-configured with anomalies. Results will show detected issues instantly.
+                    Info: Scenario "{selectedScenario}" is pre-configured with anomalies. Results will show detected issues instantly.
                   </div>
                 )}
               </div>
@@ -486,7 +485,7 @@ export function Diagnose() {
                     />
                   </div>
                   <p className="text-xs text-purple-400 font-mono">
-                    💡 Get your JWT token from OpenMetadata: Settings → Bots → ingestion-bot
+                    Tip: Get your JWT token from OpenMetadata: Settings → Bots → ingestion-bot
                   </p>
                 </div>
               )}

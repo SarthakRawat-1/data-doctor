@@ -18,14 +18,16 @@ For our demo setup, we need to create them programmatically.
 import sys
 import time
 import json
+import requests
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 from datetime import datetime, timedelta
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add backend directory to path so we can import from src
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.core.api_client import get_metadata_client
+from src.config import settings
 
 # Import OpenMetadata SDK classes
 try:
@@ -44,9 +46,10 @@ except ImportError as e:
     print(f"Warning: OpenMetadata SDK imports failed: {e}")
     print("Some advanced features may not work. Basic REST API will be used instead.")
 
-# Database connection constants
-SAMPLE_DB_USER = "root"
-SAMPLE_DB_PASSWORD = "password"
+# Database connection constants (from docker-compose files)
+SAMPLE_DB_USER = "sample_user"
+SAMPLE_DB_PASSWORD = "sample_pass"
+SAMPLE_DB_ROOT_PASSWORD = "sample_root_pass"
 
 def print_header(text: str):
     """Print a header with borders."""
@@ -102,6 +105,7 @@ def create_database_service(config: Dict[str, Any]):
             pass  # Service doesn't exist, continue with creation
         
         # Create MySQL connection config
+        # Note: Using sample_user credentials from docker-compose
         mysql_connection = MysqlConnection(
             username=SAMPLE_DB_USER,
             authType={"password": SAMPLE_DB_PASSWORD},
@@ -173,6 +177,10 @@ def run_metadata_ingestion(config: Dict[str, Any]):
     
     print_info(f"Running metadata ingestion for {service_name}")
     
+    # Convert table names to regex patterns for OpenMetadata filter
+    table_patterns = [f"^{table}$" for table in tables]
+    print_info(f"Table filter patterns: {table_patterns}")
+    
     # Create ingestion workflow configuration
     ingestion_config = {
         "source": {
@@ -192,11 +200,8 @@ def run_metadata_ingestion(config: Dict[str, Any]):
             "sourceConfig": {
                 "config": {
                     "type": "DatabaseMetadata",
-                    "schemaFilterPattern": {
-                        "includes": [database_name]
-                    },
                     "tableFilterPattern": {
-                        "includes": tables
+                        "includes": table_patterns
                     }
                 }
             }
@@ -208,10 +213,10 @@ def run_metadata_ingestion(config: Dict[str, Any]):
         "workflowConfig": {
             "loggerLevel": "INFO",
             "openMetadataServerConfig": {
-                "hostPort": "http://localhost:8585/api",
+                "hostPort": settings.OPENMETADATA_HOST_PORT,
                 "authProvider": "openmetadata",
                 "securityConfig": {
-                    "jwtToken": ""
+                    "jwtToken": settings.OPENMETADATA_JWT_TOKEN
                 }
             }
         }
@@ -250,6 +255,9 @@ def run_profiler(config: Dict[str, Any]):
     
     print_info(f"Running profiler on {len(tables)} tables")
     
+    # Convert table names to regex patterns for OpenMetadata filter
+    table_patterns = [f"^{table}$" for table in tables]
+    
     # Create profiler workflow configuration
     profiler_config = {
         "source": {
@@ -269,13 +277,9 @@ def run_profiler(config: Dict[str, Any]):
             "sourceConfig": {
                 "config": {
                     "type": "Profiler",
-                    "generateSampleData": True,
                     "profileSample": 100,
-                    "schemaFilterPattern": {
-                        "includes": [database_name]
-                    },
                     "tableFilterPattern": {
-                        "includes": tables
+                        "includes": table_patterns
                     }
                 }
             }
@@ -291,20 +295,21 @@ def run_profiler(config: Dict[str, Any]):
         "workflowConfig": {
             "loggerLevel": "INFO",
             "openMetadataServerConfig": {
-                "hostPort": "http://localhost:8585/api",
+                "hostPort": settings.OPENMETADATA_HOST_PORT,
                 "authProvider": "openmetadata",
                 "securityConfig": {
-                    "jwtToken": ""
+                    "jwtToken": settings.OPENMETADATA_JWT_TOKEN
                 }
             }
         }
     }
     
     try:
-        # Create and run profiler workflow
-        workflow = MetadataWorkflow.create(profiler_config)
+        # Create and run profiler workflow using ProfilerWorkflow
+        workflow = ProfilerWorkflow.create(profiler_config)
         workflow.execute()
         workflow.raise_from_status()
+        workflow.stop()
         
         print_success(f"Profiler completed for {len(tables)} tables")
         
@@ -320,7 +325,7 @@ def add_lineage(config: Dict[str, Any]):
     """Add lineage relationships between tables.
     
     Creates upstream/downstream relationships that our root cause analysis uses.
-    Uses REST API for reliability.
+    Uses REST API directly with entity IDs.
     
     Args:
         config: Configuration dictionary with lineage relationships
@@ -333,34 +338,57 @@ def add_lineage(config: Dict[str, Any]):
     
     print_info(f"Adding {len(lineage_relationships)} lineage relationships")
     
+    # Import required classes
+    from metadata.generated.schema.entity.data.table import Table
+    
     for upstream_table, downstream_table, description in lineage_relationships:
         try:
-            upstream_fqn = f"{service_name}.{database_name}.{upstream_table}"
-            downstream_fqn = f"{service_name}.{database_name}.{downstream_table}"
+            # OpenMetadata FQN format for MySQL: service.database.schema.table (4 parts)
+            # For MySQL, try both schema formats: database name and "default"
+            upstream_fqn_1 = f"{service_name}.{database_name}.{database_name}.{upstream_table}"
+            downstream_fqn_1 = f"{service_name}.{database_name}.{database_name}.{downstream_table}"
+            upstream_fqn_2 = f"{service_name}.default.{database_name}.{upstream_table}"
+            downstream_fqn_2 = f"{service_name}.default.{database_name}.{downstream_table}"
             
-            # Create lineage using REST API
-            lineage_payload = {
-                "edge": {
-                    "fromEntity": {
-                        "fqn": upstream_fqn,
-                        "type": "table"
-                    },
-                    "toEntity": {
-                        "fqn": downstream_fqn,
-                        "type": "table"
-                    },
-                    "lineageDetails": {
-                        "description": description
-                    }
-                }
-            }
+            # Get source and target tables (try both FQN formats silently)
+            source_table = None
+            target_table = None
             
-            # Use OpenMetadata client's REST API
-            response = client._client.client.put(
-                "/lineage",
-                json=lineage_payload
+            for fqn in [upstream_fqn_1, upstream_fqn_2]:
+                try:
+                    source_table = client._client.get_by_name(entity=Table, fqn=fqn)
+                    break
+                except:
+                    continue
+                    
+            for fqn in [downstream_fqn_1, downstream_fqn_2]:
+                try:
+                    target_table = client._client.get_by_name(entity=Table, fqn=fqn)
+                    break
+                except:
+                    continue
+            
+            if not source_table or not target_table:
+                print_error(f"Could not find tables: {upstream_table} or {downstream_table}")
+                continue
+            
+            # Create lineage using OpenMetadata SDK
+            from metadata.generated.schema.api.lineage.addLineage import AddLineageRequest
+            from metadata.generated.schema.type.entityLineage import EntitiesEdge, LineageDetails
+            from metadata.generated.schema.type.entityReference import EntityReference
+            
+            add_lineage_request = AddLineageRequest(
+                edge=EntitiesEdge(
+                    fromEntity=EntityReference(id=source_table.id, type="table"),
+                    toEntity=EntityReference(id=target_table.id, type="table"),
+                    lineageDetails=LineageDetails(
+                        description=description
+                    )
+                )
             )
             
+            # Add lineage using SDK
+            client._client.add_lineage(data=add_lineage_request)
             print_success(f"Added lineage: {upstream_table} -> {downstream_table}")
             
         except Exception as e:
@@ -373,7 +401,7 @@ def add_data_quality_tests(config: Dict[str, Any]):
     """Add data quality test cases.
     
     Creates test cases that DATA_QUALITY_FAILURE detection rule uses.
-    Uses REST API to create test cases with proper testCaseResult structure.
+    Uses REST API to create test cases with proper schema (no testSuite field in creation).
     
     Args:
         config: Configuration dictionary with test case definitions
@@ -385,9 +413,26 @@ def add_data_quality_tests(config: Dict[str, Any]):
     test_table = config["test_table"]
     test_cases = config["test_cases"]
     
-    table_fqn = f"{service_name}.{database_name}.{test_table}"
+    # For MySQL, FQN is: service.database.schema.table (schema = database name or "default")
+    # Try both formats since OpenMetadata creates tables with both
+    table_fqn_1 = f"{service_name}.{database_name}.{database_name}.{test_table}"
+    table_fqn_2 = f"{service_name}.default.{database_name}.{test_table}"
     
     print_info(f"Adding {len(test_cases)} data quality tests to {test_table}")
+    
+    # Verify table exists and get correct FQN
+    from metadata.generated.schema.entity.data.table import Table
+    table_fqn = None
+    try:
+        table = client._client.get_by_name(entity=Table, fqn=table_fqn_1)
+        table_fqn = table_fqn_1
+    except:
+        try:
+            table = client._client.get_by_name(entity=Table, fqn=table_fqn_2)
+            table_fqn = table_fqn_2
+        except Exception as e:
+            print_error(f"Could not find table {test_table}: {e}")
+            return
     
     # Add each test case using REST API
     for test_case_config in test_cases:
@@ -397,25 +442,15 @@ def add_data_quality_tests(config: Dict[str, Any]):
             column_name = test_case_config["columnName"]
             
             # Create test case using REST API
+            # For OpenMetadata 1.12.6, testSuite is NOT part of CreateTestCase
             test_payload = {
-                "name": f"{table_fqn}_{test_name}",
+                "name": f"{test_name}_{table_fqn.replace('.', '_')}",
                 "displayName": test_name.replace("_", " ").title(),
                 "description": f"Test case for {column_name} column",
-                "testDefinition": {
-                    "name": test_definition_name,
-                    "type": "testDefinition"
-                },
+                "testDefinition": test_definition_name,
                 "entityLink": f"<#E::table::{table_fqn}::columns::{column_name}>",
-                "testSuite": {
-                    "name": f"{table_fqn}_test_suite",
-                    "type": "testSuite"
-                },
-                "parameterValues": [
-                    {
-                        "name": "columnName",
-                        "value": column_name
-                    }
-                ]
+                "parameterValues": [],
+                "computePassedFailedRowCount": True
             }
             
             # Use OpenMetadata client's REST API
@@ -435,8 +470,8 @@ def add_data_quality_tests(config: Dict[str, Any]):
 def create_demo_pipeline(config: Dict[str, Any]):
     """Create a demo pipeline entity for PIPELINE_FAILURE detection.
     
-    Creates a pipeline with taskStatus.executionStatus that can be set to "Failed"
-    for demo purposes. This is what the detect_pipeline_failure() function expects.
+    Creates a pipeline with tasks. According to OpenMetadata docs, taskStatus is NOT
+    part of CreatePipeline schema - it's added later via pipeline runs/executions.
     
     Args:
         config: Configuration dictionary with service details
@@ -479,15 +514,13 @@ def create_demo_pipeline(config: Dict[str, Any]):
         except Exception as e:
             print_info(f"Pipeline service may already exist: {e}")
         
-        # Create pipeline entity
+        # Create pipeline entity using CreatePipelineRequest schema
+        # According to OpenMetadata docs, taskStatus is NOT part of CreatePipeline
         pipeline_payload = {
             "name": pipeline_name,
             "displayName": f"ETL Pipeline for {database_name}",
             "description": f"Demo ETL pipeline for {database_name} dataset",
-            "service": {
-                "name": pipeline_service_name,
-                "type": "pipelineService"
-            },
+            "service": pipeline_service_name,  # Use string FQN
             "tasks": [
                 {
                     "name": "extract_data",
@@ -507,14 +540,9 @@ def create_demo_pipeline(config: Dict[str, Any]):
                     "taskType": "SQL", 
                     "description": "Load data to target tables"
                 }
-            ],
-            # Add taskStatus for PIPELINE_FAILURE detection
-            "taskStatus": {
-                "executionStatus": "Success"  # Will be changed to "Failed" for anomaly scenarios
-            },
-            "pipelineStatus": {
-                "pipelineState": "success"
-            }
+            ]
+            # Note: taskStatus and pipelineStatus are NOT part of CreatePipeline
+            # They are added via pipeline runs/executions
         }
         
         # Use OpenMetadata client's REST API
@@ -533,8 +561,7 @@ def apply_scenario_anomalies(config: Dict[str, Any], scenario_name: str):
     """Apply scenario-specific anomalies to OpenMetadata entities.
     
     This modifies the entities to create the anomalies that our detection rules
-    will find. For example, setting pipeline status to "Failed" or modifying
-    table changeDescription to simulate schema changes.
+    will find. Uses JSON Patch (RFC 6902) format for PATCH operations.
     
     Args:
         config: Configuration dictionary
@@ -552,85 +579,153 @@ def apply_scenario_anomalies(config: Dict[str, Any], scenario_name: str):
     
     try:
         if scenario_name == "pipeline_failure":
-            # Set pipeline status to failed
+            # Set pipeline status to failed using JSON Patch
             pipeline_name = f"{service_name}_etl_pipeline"
             pipeline_fqn = f"{service_name}_pipeline_service.{pipeline_name}"
             
-            # Update pipeline status using PATCH
-            patch_payload = [
-                {
-                    "op": "replace",
-                    "path": "/taskStatus/executionStatus",
-                    "value": "Failed"
-                },
-                {
-                    "op": "replace", 
-                    "path": "/pipelineStatus/pipelineState",
-                    "value": "failed"
-                }
-            ]
+            # Get the pipeline first to get its ID
+            from metadata.generated.schema.entity.services.ingestionPipelines.ingestionPipeline import IngestionPipeline
             
-            response = client._client.client.patch(
-                f"/pipelines/name/{pipeline_fqn}",
-                json=patch_payload
-            )
-            print_success(f"Set pipeline {pipeline_name} status to Failed")
-            
-        elif scenario_name == "schema_change":
-            # Add changeDescription to indicate column deletion
-            test_table = config["test_table"]
-            table_fqn = f"{service_name}.{database_name}.{test_table}"
-            
-            patch_payload = [
-                {
-                    "op": "add",
-                    "path": "/changeDescription",
-                    "value": {
-                        "fieldsDeleted": [
-                            {
-                                "name": "deleted_column",
-                                "oldValue": "VARCHAR(255)"
-                            }
-                        ],
-                        "fieldsUpdated": [],
-                        "fieldsAdded": []
-                    }
-                }
-            ]
-            
-            response = client._client.client.patch(
-                f"/tables/name/{table_fqn}",
-                json=patch_payload
-            )
-            print_success(f"Added schema change to table {test_table}")
-            
-        elif scenario_name == "data_quality":
-            # Set test case results to Failed
-            test_table = config["test_table"]
-            table_fqn = f"{service_name}.{database_name}.{test_table}"
-            
-            # Update test case results
-            for test_case_config in config["test_cases"]:
-                test_name = f"{table_fqn}_{test_case_config['name']}"
+            try:
+                pipeline = client._client.get_by_name(
+                    entity=IngestionPipeline,
+                    fqn=pipeline_fqn
+                )
                 
+                # Update pipeline status using JSON Patch
+                import requests
+                patch_url = f"{settings.OPENMETADATA_HOST_PORT}/api/v1/pipelines/{pipeline.id.__root__}"
                 patch_payload = [
                     {
                         "op": "add",
-                        "path": "/testCaseResult",
+                        "path": "/pipelineStatus",
                         "value": {
-                            "testCaseStatus": "Failed",
-                            "result": "Test failed - constraint violation detected",
+                            "pipelineState": "failed",
                             "timestamp": int(time.time() * 1000)
                         }
                     }
                 ]
                 
+                response = requests.patch(
+                    patch_url,
+                    json=patch_payload,
+                    headers={
+                        "Content-Type": "application/json-patch+json",
+                        "Authorization": f"Bearer {settings.OPENMETADATA_JWT_TOKEN}"
+                    }
+                )
+                
+                if response.status_code in [200, 201]:
+                    print_success(f"Set pipeline {pipeline_name} status to Failed")
+                else:
+                    print_error(f"Failed to update pipeline status: {response.text}")
+                    
+            except Exception as e:
+                print_error(f"Failed to update pipeline {pipeline_name}: {e}")
+            
+        elif scenario_name == "schema_change":
+            # Add changeDescription to indicate column deletion
+            test_table = config["test_table"]
+            table_fqn = f"{service_name}.{database_name}.{database_name}.{test_table}"
+            
+            from metadata.generated.schema.entity.data.table import Table
+            
+            try:
+                table = client._client.get_by_name(
+                    entity=Table,
+                    fqn=table_fqn
+                )
+                
+                # Update table with changeDescription using JSON Patch
+                import requests
+                patch_url = f"{settings.OPENMETADATA_HOST_PORT}/api/v1/tables/{table.id.__root__}"
+                patch_payload = [
+                    {
+                        "op": "add",
+                        "path": "/changeDescription",
+                        "value": {
+                            "fieldsDeleted": [
+                                {
+                                    "name": "deleted_column",
+                                    "oldValue": "VARCHAR(255)"
+                                }
+                            ],
+                            "fieldsUpdated": [],
+                            "fieldsAdded": []
+                        }
+                    }
+                ]
+                
+                response = requests.patch(
+                    patch_url,
+                    json=patch_payload,
+                    headers={
+                        "Content-Type": "application/json-patch+json",
+                        "Authorization": f"Bearer {settings.OPENMETADATA_JWT_TOKEN}"
+                    }
+                )
+                
+                if response.status_code in [200, 201]:
+                    print_success(f"Added schema change to table {test_table}")
+                else:
+                    print_error(f"Failed to update table: {response.text}")
+                    
+            except Exception as e:
+                print_error(f"Failed to update table {test_table}: {e}")
+            
+        elif scenario_name == "data_quality":
+            # Set test case results to Failed
+            test_table = config["test_table"]
+            table_fqn = f"{service_name}.{database_name}.{database_name}.{test_table}"
+            
+            # Update test case results
+            for test_case_config in config["test_cases"]:
+                test_name = f"{table_fqn}_{test_case_config['name']}"
+                
                 try:
-                    response = client._client.client.patch(
-                        f"/dataQuality/testCases/name/{test_name}",
-                        json=patch_payload
+                    # Get test case to get its ID
+                    import requests
+                    search_url = f"{settings.OPENMETADATA_HOST_PORT}/api/v1/dataQuality/testCases/name/{test_name}"
+                    
+                    response = requests.get(
+                        search_url,
+                        headers={"Authorization": f"Bearer {settings.OPENMETADATA_JWT_TOKEN}"}
                     )
-                    print_success(f"Set test case {test_case_config['name']} to Failed")
+                    
+                    if response.status_code == 200:
+                        test_case = response.json()
+                        test_case_id = test_case.get("id")
+                        
+                        # Update test case result using JSON Patch
+                        patch_url = f"{settings.OPENMETADATA_HOST_PORT}/api/v1/dataQuality/testCases/{test_case_id}"
+                        patch_payload = [
+                            {
+                                "op": "add",
+                                "path": "/testCaseResult",
+                                "value": {
+                                    "testCaseStatus": "Failed",
+                                    "result": "Test failed - constraint violation detected",
+                                    "timestamp": int(time.time() * 1000)
+                                }
+                            }
+                        ]
+                        
+                        patch_response = requests.patch(
+                            patch_url,
+                            json=patch_payload,
+                            headers={
+                                "Content-Type": "application/json-patch+json",
+                                "Authorization": f"Bearer {settings.OPENMETADATA_JWT_TOKEN}"
+                            }
+                        )
+                        
+                        if patch_response.status_code in [200, 201]:
+                            print_success(f"Set test case {test_case_config['name']} to Failed")
+                        else:
+                            print_error(f"Failed to update test case: {patch_response.text}")
+                    else:
+                        print_error(f"Failed to find test case {test_name}")
+                        
                 except Exception as e:
                     print_error(f"Failed to update test case {test_case_config['name']}: {e}")
         

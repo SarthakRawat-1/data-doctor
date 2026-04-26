@@ -71,7 +71,3 @@ Thumbs.db
 
 # Build artifacts
 *.whl
-
-# Markdowns
-mds
-*.md
