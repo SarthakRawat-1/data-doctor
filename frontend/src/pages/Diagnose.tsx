@@ -1,0 +1,272 @@
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { diagnose, runDemo } from "../api";
+import type { DiagnosisRequest } from "../types";
+
+export function Diagnose() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+
+  const [fqn, setFqn] = useState("");
+  const [upstreamDepth, setUpstreamDepth] = useState(5);
+  const [downstreamDepth, setDownstreamDepth] = useState(5);
+  const [enhanceWithAi, setEnhanceWithAi] = useState(true);
+  const [applyTags, setApplyTags] = useState(false);
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (isDemo) {
+      handleDemo();
+    }
+  }, [isDemo]);
+
+  async function handleDemo() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await runDemo();
+      localStorage.setItem("datadoctor_current", JSON.stringify(res.diagnosis));
+      
+      const stored = localStorage.getItem("datadoctor_recent");
+      const recent = stored ? JSON.parse(stored) : [];
+      localStorage.setItem("datadoctor_recent", JSON.stringify([res.diagnosis, ...recent].slice(0, 5)));
+      
+      navigate("/results");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run demo scenario");
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fqn.trim()) {
+      setError("Please enter a Target FQN");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    const req: DiagnosisRequest = {
+      target_fqn: fqn.trim(),
+      upstream_depth: upstreamDepth,
+      downstream_depth: downstreamDepth,
+    };
+
+    try {
+      const res = await diagnose(req, enhanceWithAi, applyTags);
+      localStorage.setItem("datadoctor_current", JSON.stringify(res));
+      
+      const stored = localStorage.getItem("datadoctor_recent");
+      const recent = stored ? JSON.parse(stored) : [];
+      localStorage.setItem("datadoctor_recent", JSON.stringify([res, ...recent].slice(0, 5)));
+      
+      navigate("/results");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Diagnosis failed");
+      setLoading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-32 sm:px-6 lg:px-8 text-center animate-fade-in">
+        <div className="relative w-24 h-24 mx-auto mb-12">
+          <div className="absolute inset-0 border-t-2 border-[var(--color-text)] rounded-full animate-spin"></div>
+          <div className="absolute inset-2 border-r-2 border-[var(--color-text-muted)] rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+          <div className="absolute inset-4 border-b-2 border-blue-500 rounded-full animate-spin" style={{ animationDuration: '3s' }}></div>
+        </div>
+        <h2 className="font-header text-3xl font-bold mb-4">Executing Graph Traversal</h2>
+        <p className="text-[var(--color-text-muted)] font-mono text-sm max-w-lg mx-auto">
+          Querying OpenMetadata Lineage API. Evaluating nodes against 6 anomaly detectors. Calculating confidence scores...
+        </p>
+        
+        <div className="mt-12 space-y-4 max-w-xl mx-auto text-left">
+          <div className="h-1 w-full bg-[rgba(255,255,255,0.05)] overflow-hidden">
+            <div className="h-full bg-white w-1/2 animate-[skeleton_1s_ease-in-out_infinite]" style={{ transformOrigin: 'left' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 animate-fade-in min-h-screen">
+      <div className="mb-12 border-b border-[var(--color-border)] pb-8">
+        <h1 className="font-header text-4xl font-bold mb-3">Diagnostic Command Center</h1>
+        <p className="text-[var(--color-text-muted)] text-lg">Configure traversal parameters and execute a deterministic root cause analysis.</p>
+      </div>
+
+      {error && (
+        <div className="mb-8 p-4 bg-[var(--color-high)]/10 border border-[var(--color-high)] text-[var(--color-text)] text-sm font-medium flex items-center gap-3">
+          <span className="font-bold">ERROR:</span> {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        {/* Left Column: Configuration Form */}
+        <div className="lg:col-span-2">
+          <form onSubmit={handleSubmit} className="space-y-10">
+            {/* Target FQN */}
+            <div className="space-y-3">
+              <label htmlFor="fqn" className="block label-mono text-[var(--color-text-muted)]">Target Entity FQN</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] font-mono font-bold">{'>'}</span>
+                <input
+                  id="fqn"
+                  type="text"
+                  className="w-full bg-[var(--color-bg-alt)] border border-[var(--color-border)] text-white font-mono text-sm py-4 pl-10 pr-4 focus:outline-none focus:border-white transition-colors"
+                  placeholder="e.g. snowflake.analytics.public.dim_customer"
+                  value={fqn}
+                  onChange={(e) => setFqn(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            {/* Depth Sliders */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4 p-6 border border-[var(--color-border)] bg-[rgba(255,255,255,0.02)]">
+                <div className="flex justify-between items-center">
+                  <label className="label-mono text-[var(--color-text-muted)]">Upstream Depth</label>
+                  <span className="font-mono font-bold text-white bg-white/10 px-2 py-0.5 border border-white/20">{upstreamDepth}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1" max="10"
+                  value={upstreamDepth}
+                  onChange={(e) => setUpstreamDepth(parseInt(e.target.value))}
+                  className="w-full h-1 bg-[var(--color-border)] rounded-none appearance-none cursor-pointer accent-white"
+                />
+                <p className="text-xs text-[var(--color-text-muted)] font-mono">Root cause search distance.</p>
+              </div>
+
+              <div className="space-y-4 p-6 border border-[var(--color-border)] bg-[rgba(255,255,255,0.02)]">
+                <div className="flex justify-between items-center">
+                  <label className="label-mono text-[var(--color-text-muted)]">Downstream Depth</label>
+                  <span className="font-mono font-bold text-white bg-white/10 px-2 py-0.5 border border-white/20">{downstreamDepth}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1" max="10"
+                  value={downstreamDepth}
+                  onChange={(e) => setDownstreamDepth(parseInt(e.target.value))}
+                  className="w-full h-1 bg-[var(--color-border)] rounded-none appearance-none cursor-pointer accent-white"
+                />
+                <p className="text-xs text-[var(--color-text-muted)] font-mono">Blast radius search distance.</p>
+              </div>
+            </div>
+
+            {/* Feature Toggles */}
+            <div className="space-y-6">
+              <h3 className="label-mono text-[var(--color-text-muted)] border-b border-[var(--color-border)] pb-2">Execution Modules</h3>
+              
+              <div className="flex items-center justify-between p-6 border border-[var(--color-border)] hover:border-white/30 transition-colors bg-[var(--color-bg-alt)]">
+                <div>
+                  <h4 className="font-bold text-white mb-1">AI Remediation Engine</h4>
+                  <p className="text-sm text-[var(--color-text-muted)]">Utilize Groq LLMs to generate context-aware SQL fixes.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEnhanceWithAi(!enhanceWithAi)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${enhanceWithAi ? 'bg-blue-500' : 'bg-gray-700'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enhanceWithAi ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-6 border border-[var(--color-border)] hover:border-white/30 transition-colors bg-[var(--color-bg-alt)]">
+                <div>
+                  <h4 className="font-bold text-white mb-1">Automated OM Tagging</h4>
+                  <p className="text-sm text-[var(--color-text-muted)]">Write `DataQuality.Critical` tags back to OpenMetadata for impacted assets.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setApplyTags(!applyTags)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${applyTags ? 'bg-red-500' : 'bg-gray-700'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${applyTags ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-8 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleDemo}
+                className="text-sm font-mono font-medium text-[var(--color-text-muted)] hover:text-white transition-colors underline decoration-[var(--color-border)] underline-offset-4"
+              >
+                [ RUN DEMO SCENARIO ]
+              </button>
+              <button
+                type="submit"
+                className="minimal-button px-10 py-4 label-mono text-sm"
+              >
+                EXECUTE DIAGNOSIS
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Right Column: Dynamic Execution Plan */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-28 border border-[var(--color-border)] bg-[#050505] overflow-hidden">
+            <div className="bg-[#111] border-b border-[var(--color-border)] px-4 py-3 flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#FF5F56]"></div>
+              <div className="w-3 h-3 rounded-full bg-[#FFBD2E]"></div>
+              <div className="w-3 h-3 rounded-full bg-[#27C93F]"></div>
+              <span className="ml-4 font-mono text-xs text-[var(--color-text-muted)]">execution_plan.log</span>
+            </div>
+            
+            <div className="p-6 font-mono text-xs leading-relaxed space-y-4">
+              <div>
+                <span className="text-blue-400">INFO</span> [Init] Preparing diagnostic sequence...
+              </div>
+              
+              {fqn ? (
+                <div>
+                  <span className="text-green-400">TARGET</span> Resolved FQN: <br/>
+                  <span className="text-white break-all">{fqn}</span>
+                </div>
+              ) : (
+                <div className="text-yellow-400">
+                  <span className="text-yellow-400">WARN</span> Awaiting Target FQN...
+                </div>
+              )}
+
+              <div className="border-t border-dashed border-white/10 pt-4">
+                <span className="text-purple-400">GRAPH</span> Configuring BFS Traversal:
+                <ul className="mt-2 space-y-1 text-[var(--color-text-muted)]">
+                  <li>Upstream Depth: <span className="text-white">{upstreamDepth}</span> <span className="opacity-50">(~{Math.pow(2, upstreamDepth)} nodes max)</span></li>
+                  <li>Downstream Depth: <span className="text-white">{downstreamDepth}</span> <span className="opacity-50">(~{Math.pow(2, downstreamDepth)} nodes max)</span></li>
+                </ul>
+              </div>
+
+              <div className="border-t border-dashed border-white/10 pt-4">
+                <span className="text-teal-400">MODULES</span> Active plugins:
+                <ul className="mt-2 space-y-1">
+                  <li className={enhanceWithAi ? "text-white" : "text-gray-600 line-through"}>
+                    &gt; Groq AI Remediation
+                  </li>
+                  <li className={applyTags ? "text-white" : "text-gray-600 line-through"}>
+                    &gt; OM Auto-Tagging
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-4 flex items-center gap-2 text-[var(--color-text-muted)]">
+                <span className="animate-pulse">_</span>
+                <span>Ready to execute.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
