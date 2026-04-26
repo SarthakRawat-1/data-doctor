@@ -73,3 +73,42 @@ export interface DemoScenarioResponse {
   demo_fqn: string;
   diagnosis: DiagnosisResponse;
 }
+
+// Interactive Demo Types
+export interface DatasetInfo {
+  id: string;
+  name: string;
+  description: string;
+  service_name: string;
+  database_name: string;
+  table_count: number;
+  icon: string;
+}
+
+export interface FQNInfo {
+  fqn: string;
+  table_name: string;
+  description: string;
+  row_count: number | null;
+}
+
+export interface ScenarioInfo {
+  id: string;
+  name: string;
+  description: string;
+  anomaly_types: string[];
+  severity: string;
+}
+
+export interface DatasetsResponse {
+  datasets: DatasetInfo[];
+}
+
+export interface FQNsResponse {
+  dataset_id: string;
+  fqns: FQNInfo[];
+}
+
+export interface ScenariosResponse {
+  scenarios: ScenarioInfo[];
+}

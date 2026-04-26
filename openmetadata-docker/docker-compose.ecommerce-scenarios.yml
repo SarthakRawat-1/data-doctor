@@ -1,0 +1,164 @@
+version: "3.9"
+
+# E-commerce dataset with all 8 scenarios
+# Usage: docker compose -f docker-compose.yml -f docker-compose.ecommerce-scenarios.yml up -d
+
+services:
+  ecommerce_clean:
+    container_name: ecommerce_clean
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_clean
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3310:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_clean_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  ecommerce_schema_change:
+    container_name: ecommerce_schema_change
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_schema_change
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3311:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_schema_change_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  ecommerce_data_quality:
+    container_name: ecommerce_data_quality
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_data_quality
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3312:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_data_quality_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  ecommerce_volume_anomaly:
+    container_name: ecommerce_volume_anomaly
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_volume_anomaly
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3313:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_volume_anomaly_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  ecommerce_distribution_drift:
+    container_name: ecommerce_distribution_drift
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_distribution_drift
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3314:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_distribution_drift_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  ecommerce_stale_data:
+    container_name: ecommerce_stale_data
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_stale_data
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3315:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_stale_data_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  ecommerce_pipeline_failure:
+    container_name: ecommerce_pipeline_failure
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_pipeline_failure
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3316:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_pipeline_failure_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  ecommerce_multiple:
+    container_name: ecommerce_multiple
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: ecommerce_multiple
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3317:3306"
+    volumes:
+      - ./sample-data/ecommerce-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ecommerce_multiple_data:/var/lib/mysql
+    networks:
+      - app_net
+
+volumes:
+  ecommerce_clean_data:
+  ecommerce_schema_change_data:
+  ecommerce_data_quality_data:
+  ecommerce_volume_anomaly_data:
+  ecommerce_distribution_drift_data:
+  ecommerce_stale_data_data:
+  ecommerce_pipeline_failure_data:
+  ecommerce_multiple_data:
+
+networks:
+  app_net:
+    external: true
+    name: openmetadata_app_net

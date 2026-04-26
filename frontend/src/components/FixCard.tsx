@@ -19,38 +19,38 @@ export function FixCard({ fix, index }: Props) {
   };
 
   return (
-    <div className="card relative border-[var(--color-border)] hover:border-[var(--color-brand)]">
-      <div className="absolute top-0 left-0 w-1 h-full bg-[var(--color-brand)]" />
+    <div className="card relative border-[var(--color-border)] hover:border-white/30 transition-colors">
+      <div className="absolute top-0 left-0 w-1 h-full bg-white/40" />
       
       <div className="flex items-start gap-5">
-        <div className="flex-shrink-0 w-8 h-8 border-2 border-[var(--color-brand)] text-[var(--color-brand)] flex items-center justify-center font-bold font-mono">
+        <div className="flex-shrink-0 w-8 h-8 border border-white/30 text-white flex items-center justify-center font-bold font-mono text-sm">
           {index}
         </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-2">
-            <span className="label-mono font-bold text-[var(--color-brand)] bg-[var(--color-brand)]/10 px-2 py-1 border border-[var(--color-brand)]/20">
+            <span className="label-mono font-bold text-white bg-[rgba(255,255,255,0.05)] px-2 py-1 border border-[var(--color-border)]">
               {fix.action.replace(/_/g, ' ')}
             </span>
             <span className="text-[var(--color-text-muted)] text-xs">&rarr;</span>
-            <span className="label-mono font-bold truncate border-b border-[var(--color-border)] text-[var(--color-text)]">{fix.target}</span>
+            <span className="label-mono font-bold truncate text-[var(--color-text)]">{fix.target}</span>
           </div>
           
-          <p className="text-base font-medium mb-4 mt-3 text-[var(--color-text)]">{fix.description}</p>
+          <p className="text-sm font-medium mb-4 mt-3 text-[var(--color-text-muted)] leading-relaxed">{fix.description}</p>
           
           {fix.markdown_details && (
-            <div className="mb-4 text-sm font-medium bg-[var(--color-bg)] p-4 border border-[var(--color-border)] text-[var(--color-text)]">
+            <div className="mb-4 text-sm font-medium bg-[var(--color-bg)] p-4 border border-[var(--color-border)] text-[var(--color-text-muted)]">
               {fix.markdown_details}
             </div>
           )}
           
           {fix.sql_script && (
-            <div className="mt-4 border border-[var(--color-border)] bg-[#1e1e1e]">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-[#333333] bg-[#252526]">
-                <span className="label-mono text-[#cccccc]">remediation.sql</span>
+            <div className="mt-4 border border-[var(--color-border)] bg-[var(--color-bg)]">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--color-border)] bg-[rgba(255,255,255,0.02)]">
+                <span className="label-mono text-[var(--color-text-muted)]">remediation.sql</span>
                 <button
                   onClick={handleCopy}
-                  className="label-mono text-white hover:text-[var(--color-brand)] font-bold flex items-center gap-2 transition-colors"
+                  className="label-mono text-[var(--color-text-muted)] hover:text-white font-bold flex items-center gap-2 transition-colors"
                 >
                   {copied ? (
                     <>
@@ -70,14 +70,14 @@ export function FixCard({ fix, index }: Props) {
                 </button>
               </div>
               <div className={`relative ${expandedCode ? '' : 'max-h-40 overflow-hidden'}`}>
-                <pre className="p-4 text-xs font-mono text-[#cccccc] overflow-x-auto whitespace-pre-wrap selection:bg-[var(--color-brand)] selection:text-white">
+                <pre className="p-4 text-xs font-mono text-[var(--color-text-muted)] overflow-x-auto whitespace-pre-wrap selection:bg-white selection:text-black">
                   {fix.sql_script}
                 </pre>
                 {!expandedCode && (
-                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#1e1e1e] to-transparent flex items-end justify-center pb-3">
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[var(--color-bg)] to-transparent flex items-end justify-center pb-3">
                     <button
                       onClick={() => setExpandedCode(true)}
-                      className="label-mono text-white bg-[#1e1e1e] px-4 py-1 border border-[#444444] hover:border-white transition-colors"
+                      className="label-mono text-white bg-[var(--color-bg)] px-4 py-1 border border-[var(--color-border)] hover:border-white transition-colors"
                     >
                       SHOW FULL SCRIPT
                     </button>

@@ -30,12 +30,25 @@ class Settings(BaseSettings):
     
     # API Configuration
     API_V1_PREFIX: str = "/api/v1"
+    # For local development:
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    # For deployment, add your domain:
+    # CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "https://your-domain.com", "http://your-server-ip:3000"]
     
     # Demo Configuration
     DEMO_SCENARIO_FQN: str = Field(
-        default="sample_mysql_service.ecommerce_sample.dim_customer",
-        description="Pre-staged FQN for demo scenario (matches setup_realistic_demo.py output)"
+        default="sample_mysql_healthcare_clean.healthcare_clean.dim_patient",
+        description="Pre-staged FQN for simple demo button (uses healthcare clean scenario)"
+    )
+    
+    # Interactive Demo Configuration  
+    DEMO_DATASETS: dict = Field(
+        default={
+            "ecommerce": "sample_mysql_ecommerce_clean.ecommerce_clean.dim_customer",
+            "healthcare": "sample_mysql_healthcare_clean.healthcare_clean.dim_patient", 
+            "finance": "sample_mysql_finance_clean.finance_clean.dim_account"
+        },
+        description="Default clean scenario FQNs for each demo dataset"
     )
     
     # Phase 5: AI Enhancement Layer Configuration

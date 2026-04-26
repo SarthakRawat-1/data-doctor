@@ -1,0 +1,164 @@
+version: "3.9"
+
+# Finance dataset with all 8 scenarios
+# Usage: docker compose -f docker-compose.yml -f docker-compose.finance-scenarios.yml up -d
+
+services:
+  finance_clean:
+    container_name: finance_clean
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_clean
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3330:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_clean_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  finance_schema_change:
+    container_name: finance_schema_change
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_schema_change
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3331:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_schema_change_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  finance_data_quality:
+    container_name: finance_data_quality
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_data_quality
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3332:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_data_quality_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  finance_volume_anomaly:
+    container_name: finance_volume_anomaly
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_volume_anomaly
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3333:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_volume_anomaly_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  finance_distribution_drift:
+    container_name: finance_distribution_drift
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_distribution_drift
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3334:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_distribution_drift_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  finance_stale_data:
+    container_name: finance_stale_data
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_stale_data
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3335:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_stale_data_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  finance_pipeline_failure:
+    container_name: finance_pipeline_failure
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_pipeline_failure
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3336:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_pipeline_failure_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  finance_multiple:
+    container_name: finance_multiple
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: finance_multiple
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3337:3306"
+    volumes:
+      - ./sample-data/finance-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - finance_multiple_data:/var/lib/mysql
+    networks:
+      - app_net
+
+volumes:
+  finance_clean_data:
+  finance_schema_change_data:
+  finance_data_quality_data:
+  finance_volume_anomaly_data:
+  finance_distribution_drift_data:
+  finance_stale_data_data:
+  finance_pipeline_failure_data:
+  finance_multiple_data:
+
+networks:
+  app_net:
+    external: true
+    name: openmetadata_app_net

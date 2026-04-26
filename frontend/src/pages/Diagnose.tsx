@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { diagnose, runDemo } from "../api";
-import type { DiagnosisRequest } from "../types";
+import { diagnose, runDemo, listDatasets, listDatasetFQNs, listScenarios } from "../api";
+import type { DiagnosisRequest, DatasetInfo, FQNInfo, ScenarioInfo } from "../types";
 
 export function Diagnose() {
   const navigate = useNavigate();
@@ -19,8 +19,53 @@ export function Diagnose() {
   const [omHostPort, setOmHostPort] = useState("");
   const [omJwtToken, setOmJwtToken] = useState("");
   
+  // Interactive demo state
+  const [showInteractiveDemo, setShowInteractiveDemo] = useState(false);
+  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
+  const [selectedDataset, setSelectedDataset] = useState<string>("");
+  const [fqns, setFqns] = useState<FQNInfo[]>([]);
+  const [selectedFqn, setSelectedFqn] = useState<string>("");
+  const [scenarios, setScenarios] = useState<ScenarioInfo[]>([]);
+  const [selectedScenario, setSelectedScenario] = useState<string>("clean");
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load datasets and scenarios on mount
+  useEffect(() => {
+    async function loadDemoData() {
+      try {
+        const [datasetsRes, scenariosRes] = await Promise.all([
+          listDatasets(),
+          listScenarios()
+        ]);
+        setDatasets(datasetsRes.datasets);
+        setScenarios(scenariosRes.scenarios);
+      } catch (err) {
+        console.error("Failed to load demo data:", err);
+      }
+    }
+    loadDemoData();
+  }, []);
+
+  // Load FQNs when dataset OR scenario changes
+  useEffect(() => {
+    if (selectedDataset && selectedScenario) {
+      async function loadFQNs() {
+        try {
+          const fqnsRes = await listDatasetFQNs(selectedDataset, selectedScenario);
+          setFqns(fqnsRes.fqns);
+          // Auto-select first FQN
+          if (fqnsRes.fqns.length > 0) {
+            setSelectedFqn(fqnsRes.fqns[0].fqn);
+          }
+        } catch (err) {
+          console.error("Failed to load FQNs:", err);
+        }
+      }
+      loadFQNs();
+    }
+  }, [selectedDataset, selectedScenario]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -43,6 +88,40 @@ export function Diagnose() {
       navigate("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to run demo scenario");
+      setLoading(false);
+    }
+  }
+
+  async function handleInteractiveDemoSubmit() {
+    if (!selectedDataset) {
+      setError("Please select a dataset");
+      return;
+    }
+    if (!selectedFqn) {
+      setError("Please select a table");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    const req: DiagnosisRequest = {
+      target_fqn: selectedFqn,
+      upstream_depth: upstreamDepth,
+      downstream_depth: downstreamDepth,
+    };
+
+    try {
+      const res = await diagnose(req, enhanceWithAi, applyTags);
+      localStorage.setItem("datadoctor_current", JSON.stringify(res));
+      
+      const stored = localStorage.getItem("datadoctor_recent");
+      const recent = stored ? JSON.parse(stored) : [];
+      localStorage.setItem("datadoctor_recent", JSON.stringify([res, ...recent].slice(0, 5)));
+      
+      navigate("/results");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Diagnosis failed");
       setLoading(false);
     }
   }
@@ -130,6 +209,182 @@ export function Diagnose() {
           <span className="font-bold">ERROR:</span> {error}
         </div>
       )}
+
+      {/* Interactive Demo Section */}
+      <div className="mb-12">
+        <button
+          onClick={() => setShowInteractiveDemo(!showInteractiveDemo)}
+          className="w-full p-6 border-2 border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 transition-colors flex items-center justify-between group"
+        >
+          <div className="text-left">
+            <h2 className="font-header text-2xl font-bold text-white mb-2 flex items-center gap-3">
+              <span className="text-3xl">🎮</span>
+              Interactive Demo Mode
+            </h2>
+            <p className="text-[var(--color-text-muted)]">
+              Explore 3 datasets with pre-configured anomaly scenarios
+            </p>
+          </div>
+          <div className="text-blue-400 group-hover:text-blue-300 transition-colors">
+            {showInteractiveDemo ? "▼" : "▶"}
+          </div>
+        </button>
+
+        {showInteractiveDemo && (
+          <div className="mt-6 p-8 border border-blue-500/30 bg-[rgba(59,130,246,0.02)] space-y-8">
+            {/* Dataset Selector */}
+            <div className="space-y-4">
+              <label className="block label-mono text-[var(--color-text-muted)]">
+                1. SELECT DATASET
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {datasets.map((dataset) => (
+                  <button
+                    key={dataset.id}
+                    onClick={() => setSelectedDataset(dataset.id)}
+                    className={`p-6 border-2 transition-all text-left ${
+                      selectedDataset === dataset.id
+                        ? "border-blue-500 bg-blue-500/10"
+                        : "border-[var(--color-border)] bg-[var(--color-bg-alt)] hover:border-blue-500/50"
+                    }`}
+                  >
+                    <div className="text-4xl mb-3">{dataset.icon}</div>
+                    <h3 className="font-bold text-white mb-2">{dataset.name}</h3>
+                    <p className="text-sm text-[var(--color-text-muted)] mb-3">
+                      {dataset.description}
+                    </p>
+                    <div className="text-xs font-mono text-blue-400">
+                      {dataset.table_count} tables
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* FQN Selector */}
+            {selectedDataset && fqns.length > 0 && (
+              <div className="space-y-4">
+                <label className="block label-mono text-[var(--color-text-muted)]">
+                  2. SELECT TABLE TO DIAGNOSE
+                </label>
+                <div className="space-y-2">
+                  {fqns.map((fqnInfo) => (
+                    <button
+                      key={fqnInfo.fqn}
+                      onClick={() => setSelectedFqn(fqnInfo.fqn)}
+                      className={`w-full p-4 border transition-all text-left ${
+                        selectedFqn === fqnInfo.fqn
+                          ? "border-blue-500 bg-blue-500/10"
+                          : "border-[var(--color-border)] bg-[var(--color-bg-alt)] hover:border-blue-500/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <h4 className="font-mono text-sm text-white mb-1">
+                            {fqnInfo.table_name}
+                          </h4>
+                          <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                            {fqnInfo.description}
+                          </p>
+                          <p className="text-xs font-mono text-blue-400">
+                            {fqnInfo.fqn}
+                          </p>
+                        </div>
+                        {fqnInfo.row_count && (
+                          <div className="text-xs font-mono text-[var(--color-text-muted)]">
+                            {fqnInfo.row_count.toLocaleString()} rows
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Scenario Selector */}
+            {selectedFqn && (
+              <div className="space-y-4">
+                <label className="block label-mono text-[var(--color-text-muted)]">
+                  3. SELECT ANOMALY SCENARIO
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {scenarios.map((scenario) => (
+                    <button
+                      key={scenario.id}
+                      onClick={() => setSelectedScenario(scenario.id)}
+                      className={`p-4 border transition-all text-left ${
+                        selectedScenario === scenario.id
+                          ? "border-blue-500 bg-blue-500/10"
+                          : "border-[var(--color-border)] bg-[var(--color-bg-alt)] hover:border-blue-500/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h4 className="font-bold text-white text-sm">{scenario.name}</h4>
+                        <span
+                          className={`text-xs font-mono px-2 py-0.5 ${
+                            scenario.severity === "HIGH"
+                              ? "bg-red-500/20 text-red-400"
+                              : scenario.severity === "MEDIUM"
+                              ? "bg-yellow-500/20 text-yellow-400"
+                              : "bg-green-500/20 text-green-400"
+                          }`}
+                        >
+                          {scenario.severity}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                        {scenario.description}
+                      </p>
+                      {scenario.anomaly_types.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {scenario.anomaly_types.map((type) => (
+                            <span
+                              key={type}
+                              className="text-xs font-mono px-2 py-0.5 bg-white/5 text-blue-400"
+                            >
+                              {type}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Execute Button */}
+            {selectedFqn && (
+              <div className="pt-4 border-t border-blue-500/30">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-[var(--color-text-muted)] font-mono">
+                    Ready to diagnose: <span className="text-white">{selectedFqn}</span>
+                  </div>
+                  <button
+                    onClick={handleInteractiveDemoSubmit}
+                    className="minimal-button px-8 py-3 label-mono text-sm bg-blue-500/10 border-blue-500 hover:bg-blue-500/20"
+                  >
+                    RUN INTERACTIVE DEMO
+                  </button>
+                </div>
+                {selectedScenario !== "clean" && (
+                  <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400 font-mono">
+                    ℹ️ Scenario "{selectedScenario}" is pre-configured with anomalies. Results will show detected issues instantly.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="mb-12 flex items-center gap-4">
+        <div className="flex-1 border-t border-[var(--color-border)]"></div>
+        <span className="text-[var(--color-text-muted)] font-mono text-sm">OR USE MANUAL MODE</span>
+        <div className="flex-1 border-t border-[var(--color-border)]"></div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         {/* Left Column: Configuration Form */}

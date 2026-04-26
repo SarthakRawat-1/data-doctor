@@ -3,6 +3,9 @@ import type {
   DiagnosisResponse,
   DemoScenarioResponse,
   HealthCheckResponse,
+  DatasetsResponse,
+  FQNsResponse,
+  ScenariosResponse,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -40,4 +43,17 @@ export async function diagnose(
 
 export async function runDemo(): Promise<DemoScenarioResponse> {
   return request("/api/v1/demo");
+}
+
+// Interactive Demo APIs
+export async function listDatasets(): Promise<DatasetsResponse> {
+  return request("/api/v1/demo/datasets");
+}
+
+export async function listDatasetFQNs(datasetId: string, scenarioId: string = "clean"): Promise<FQNsResponse> {
+  return request(`/api/v1/demo/datasets/${datasetId}/fqns?scenario_id=${scenarioId}`);
+}
+
+export async function listScenarios(): Promise<ScenariosResponse> {
+  return request("/api/v1/demo/scenarios");
 }

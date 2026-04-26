@@ -1,0 +1,164 @@
+version: "3.9"
+
+# Healthcare dataset with all 8 scenarios
+# Usage: docker compose -f docker-compose.yml -f docker-compose.healthcare-scenarios.yml up -d
+
+services:
+  healthcare_clean:
+    container_name: healthcare_clean
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_clean
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3320:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_clean_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  healthcare_schema_change:
+    container_name: healthcare_schema_change
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_schema_change
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3321:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_schema_change_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  healthcare_data_quality:
+    container_name: healthcare_data_quality
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_data_quality
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3322:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_data_quality_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  healthcare_volume_anomaly:
+    container_name: healthcare_volume_anomaly
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_volume_anomaly
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3323:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_volume_anomaly_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  healthcare_distribution_drift:
+    container_name: healthcare_distribution_drift
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_distribution_drift
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3324:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_distribution_drift_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  healthcare_stale_data:
+    container_name: healthcare_stale_data
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_stale_data
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3325:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_stale_data_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  healthcare_pipeline_failure:
+    container_name: healthcare_pipeline_failure
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_pipeline_failure
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3326:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_pipeline_failure_data:/var/lib/mysql
+    networks:
+      - app_net
+
+  healthcare_multiple:
+    container_name: healthcare_multiple
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sample_root_pass
+      MYSQL_DATABASE: healthcare_multiple
+      MYSQL_USER: sample_user
+      MYSQL_PASSWORD: sample_pass
+    ports:
+      - "3327:3306"
+    volumes:
+      - ./sample-data/healthcare-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - healthcare_multiple_data:/var/lib/mysql
+    networks:
+      - app_net
+
+volumes:
+  healthcare_clean_data:
+  healthcare_schema_change_data:
+  healthcare_data_quality_data:
+  healthcare_volume_anomaly_data:
+  healthcare_distribution_drift_data:
+  healthcare_stale_data_data:
+  healthcare_pipeline_failure_data:
+  healthcare_multiple_data:
+
+networks:
+  app_net:
+    external: true
+    name: openmetadata_app_net

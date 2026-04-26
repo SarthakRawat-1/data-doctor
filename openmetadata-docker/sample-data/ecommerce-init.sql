@@ -17,7 +17,7 @@ DELIMITER $$
 CREATE PROCEDURE insert_customers()
 BEGIN
     DECLARE i INT DEFAULT 1;
-    WHILE i <= 1000 DO
+    WHILE i <= 500 DO
         INSERT INTO dim_customer (email, first_name, last_name, country)
         VALUES (
             CONCAT('customer', i, '@example.com'),
@@ -55,10 +55,10 @@ DELIMITER $$
 CREATE PROCEDURE insert_orders()
 BEGIN
     DECLARE i INT DEFAULT 1;
-    WHILE i <= 5000 DO
+    WHILE i <= 2500 DO
         INSERT INTO fact_orders (customer_id, order_date, order_amount, order_status)
         VALUES (
-            FLOOR(1 + RAND() * 1000),  -- Random customer 1-1000
+            FLOOR(1 + RAND() * 500),  -- Random customer 1-500
             DATE_SUB(CURDATE(), INTERVAL FLOOR(RAND() * 365) DAY),  -- Random date in last year
             ROUND(10 + RAND() * 500, 2),  -- Random amount $10-$510
             CASE FLOOR(RAND() * 4)
@@ -101,8 +101,8 @@ CREATE INDEX idx_revenue_date ON fact_revenue(date);
 
 SELECT '✅ Sample database created successfully!' AS status;
 SELECT '📊 Tables created:' AS info;
-SELECT '   - dim_customer (1000 rows)' AS tables;
-SELECT '   - fact_orders (5000 rows)' AS tables;
+SELECT '   - dim_customer (500 rows)' AS tables;
+SELECT '   - fact_orders (2500 rows)' AS tables;
 SELECT '   - fact_revenue (365 rows)' AS tables;
 SELECT '🔗 Relationships:' AS info;
 SELECT '   dim_customer → fact_orders (via customer_id)' AS relationships;
