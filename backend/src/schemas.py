@@ -1,5 +1,5 @@
 """Pydantic schemas for API requests and responses."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +14,7 @@ class AnomalyDetail(BaseModel):
     name: str
     depth: int
     entity_id: str | None = None
+    entity_type: str | None = None  # Added to fix governance tagging bug
     description: str | None = None
 
 
@@ -65,7 +66,7 @@ class DiagnosisResponse(BaseModel):
     contributing_factors: list[AnomalyDetail] = Field(default_factory=list)
     impacted_assets: ImpactedAssets
     suggested_fixes: list[SuggestedFix] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     execution_time_ms: float | None = None
 
 
@@ -75,7 +76,7 @@ class HealthCheckResponse(BaseModel):
     app_name: str
     version: str
     openmetadata_connected: bool
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DemoScenarioResponse(BaseModel):

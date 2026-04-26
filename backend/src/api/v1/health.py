@@ -1,5 +1,5 @@
 """Health check endpoints."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
@@ -36,5 +36,5 @@ async def health_check(metadata_client: MetadataClientDep):
         app_name=settings.APP_NAME,
         version=settings.APP_VERSION,
         openmetadata_connected=openmetadata_connected,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )

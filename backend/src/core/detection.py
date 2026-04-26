@@ -222,7 +222,11 @@ def detect_volume_anomaly(
         baseline_std = statistics.stdev(historical_row_counts)
         
         # Detect anomaly: current value outside mean ± 2σ
-        threshold = VOLUME_ANOMALY_STD_DEV_THRESHOLD * baseline_std
+        # Add minimum threshold floor to prevent false positives on stable tables
+        threshold = max(
+            VOLUME_ANOMALY_STD_DEV_THRESHOLD * baseline_std,
+            baseline_mean * 0.05  # 5% of mean as minimum threshold
+        )
         deviation = abs(current_row_count - baseline_mean)
         
         if deviation > threshold:

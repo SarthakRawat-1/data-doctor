@@ -70,11 +70,13 @@ class OpenMetadataClient:
         """
         Check if OpenMetadata connection is healthy.
         
+        Attempts to reconnect if health check fails.
+        
         Returns:
             bool: True if connected and healthy
         
         Raises:
-            OpenMetadataConnectionError: If health check fails
+            OpenMetadataConnectionError: If health check fails after reconnection attempt
         """
         if self._client is None:
             return False
@@ -82,7 +84,14 @@ class OpenMetadataClient:
         try:
             return self._client.health_check()
         except Exception as e:
-            raise OpenMetadataConnectionError(f"Health check failed: {e}")
+            # Attempt to reconnect
+            print(f"Health check failed, attempting to reconnect: {e}")
+            self._client = None
+            try:
+                self.connect()
+                return self._client.health_check() if self._client else False
+            except Exception as reconnect_error:
+                raise OpenMetadataConnectionError(f"Health check and reconnection failed: {reconnect_error}")
     
     def get_table_by_fqn(
         self,
@@ -202,9 +211,10 @@ class OpenMetadataClient:
             downstream_depth = min(downstream_depth, 3)
             
             # Use client's get method for lineage
+            # Note: upstreamDepth and downstreamDepth are query parameters, not body
             response = self._client.client.get(
                 f"/lineage/{entity_type}/{entity_id}",
-                data={
+                params={
                     "upstreamDepth": upstream_depth,
                     "downstreamDepth": downstream_depth
                 }
@@ -243,9 +253,10 @@ class OpenMetadataClient:
             downstream_depth = min(downstream_depth, 3)
             
             # Use client's get method for lineage by FQN
+            # Note: upstreamDepth and downstreamDepth are query parameters, not body
             response = self._client.client.get(
                 f"/lineage/{entity_type}/name/{fqn}",
-                data={
+                params={
                     "upstreamDepth": upstream_depth,
                     "downstreamDepth": downstream_depth
                 }
@@ -274,9 +285,10 @@ class OpenMetadataClient:
         
         try:
             # Use client's get method for search
+            # Note: Search API expects query parameters, not body
             response = self._client.client.get(
                 "/search/query",
-                data={
+                params={
                     "q": fqn,
                     "index": index,
                     "from": 0,
@@ -313,6 +325,12 @@ class OpenMetadataClient:
             )
             
             versions = response.get("versions", [])
+            
+            # Warn if response structure is unexpected
+            if not versions and response:
+                print(f"Warning: Unexpected response structure from get_table_versions. "
+                      f"Expected 'versions' key, got keys: {list(response.keys())}")
+            
             return versions[:limit]
             
         except Exception as e:
@@ -338,13 +356,20 @@ class OpenMetadataClient:
             # Search for test cases associated with this table
             response = self._client.client.get(
                 "/dataQuality/testCases",
-                data={
+                params={
                     "entityLink": f"<#E::table::{table_fqn}>",
                     "fields": "testCaseResult,testDefinition"
                 }
             )
             
-            return response.get("data", [])
+            test_cases = response.get("data", [])
+            
+            # Warn if response structure is unexpected
+            if not test_cases and response:
+                print(f"Warning: Unexpected response structure from get_test_case_results. "
+                      f"Expected 'data' key, got keys: {list(response.keys())}")
+            
+            return test_cases
             
         except Exception as e:
             raise OpenMetadataConnectionError(f"API error fetching test cases: {e}")
@@ -384,12 +409,14 @@ class OpenMetadataClient:
             from metadata.generated.schema.entity.data.table import Table
             from metadata.generated.schema.entity.data.pipeline import Pipeline
             from metadata.generated.schema.entity.data.dashboard import Dashboard
+            from metadata.generated.schema.entity.data.mlmodel import MlModel
             
             # Map string to entity class
             entity_class_map = {
                 "table": Table,
                 "pipeline": Pipeline,
                 "dashboard": Dashboard,
+                "mlmodel": MlModel,
             }
             
             entity_class = entity_class_map.get(entity_type.lower())

@@ -242,10 +242,15 @@ Use proper Block Kit structure. Return ONLY valid JSON, no markdown code blocks.
     
     # Parse the JSON response
     import json
+    import re
     block_kit_json = response.choices[0].message.content.strip()
     
-    # Remove markdown code blocks if present
-    if block_kit_json.startswith("```"):
+    # Remove markdown code blocks if present - use robust regex
+    json_match = re.search(r'```(?:json)?\s*([\s\S]+?)```', block_kit_json)
+    if json_match:
+        block_kit_json = json_match.group(1).strip()
+    elif block_kit_json.startswith("```"):
+        # Fallback to simple split if regex doesn't match
         block_kit_json = block_kit_json.split("```")[1]
         if block_kit_json.startswith("json"):
             block_kit_json = block_kit_json[4:]
@@ -353,10 +358,15 @@ Return ONLY the JSON array, no markdown formatting."""
         
         # Parse AI response
         import json
+        import re
         ai_response = response.choices[0].message.content.strip()
         
-        # Remove markdown code blocks if present
-        if ai_response.startswith("```"):
+        # Remove markdown code blocks if present - use robust regex
+        json_match = re.search(r'```(?:json)?\s*([\s\S]+?)```', ai_response)
+        if json_match:
+            ai_response = json_match.group(1).strip()
+        elif ai_response.startswith("```"):
+            # Fallback to simple split if regex doesn't match
             ai_response = ai_response.split("```")[1]
             if ai_response.startswith("json"):
                 ai_response = ai_response[4:]
@@ -367,11 +377,28 @@ Return ONLY the JSON array, no markdown formatting."""
         # Convert AI suggestions to SuggestedFix objects
         enhanced_fixes = base_fixes.copy()  # Start with deterministic fixes
         
+        # Map AI action strings to FixAction enum
+        action_mapping = {
+            "monitor_downstream": FixAction.RERUN_PIPELINE,
+            "setup_alerts": FixAction.RERUN_PIPELINE,
+            "review_data": FixAction.QUARANTINE_DATA,
+            "update_schema": FixAction.UPDATE_SCHEMA,
+            "backfill": FixAction.FORCE_BACKFILL,
+            "rerun": FixAction.RERUN_PIPELINE,
+        }
+        
         for ai_fix in ai_suggestions:
-            # Map AI action to our FixAction enum (or use a generic one)
-            # For now, we'll add them as additional context
+            # Try to map AI action to appropriate FixAction
+            ai_action = ai_fix.get("action", "").lower()
+            mapped_action = FixAction.RERUN_PIPELINE  # Default fallback
+            
+            for key, fix_action in action_mapping.items():
+                if key in ai_action:
+                    mapped_action = fix_action
+                    break
+            
             enhanced_fix = SuggestedFix(
-                action=FixAction.RERUN_PIPELINE,  # Generic action for AI suggestions
+                action=mapped_action,
                 target=ai_fix.get("target", "system"),
                 description=f"[AI-Enhanced] {ai_fix.get('description', '')} (Priority: {ai_fix.get('priority', 'medium')})",
                 sql_script=None,

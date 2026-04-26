@@ -245,10 +245,10 @@ class TestCreateFixForAnomaly:
         assert fix.action == FixAction.QUARANTINE_DATA
         assert fix.target == "transactions"
     
-    def test_create_fix_unsupported_type_returns_none(self):
-        """Test that unsupported anomaly types return None."""
+    def test_create_fix_volume_anomaly(self):
+        """Test that volume anomaly has a fix mapping."""
         anomaly = AnomalyDetail(
-            type=AnomalyType.VOLUME_ANOMALY,  # Not in FIX_MAPPING
+            type=AnomalyType.VOLUME_ANOMALY,
             name="test_table",
             depth=1,
             entity_id="table-1"
@@ -256,10 +256,12 @@ class TestCreateFixForAnomaly:
         
         fix = _create_fix_for_anomaly(anomaly)
         
-        assert fix is None
+        assert fix is not None
+        assert fix.action == FixAction.RERUN_PIPELINE
+        assert "row count" in fix.description.lower()
     
-    def test_create_fix_distribution_drift_returns_none(self):
-        """Test that distribution drift returns None (no mapping)."""
+    def test_create_fix_distribution_drift(self):
+        """Test that distribution drift has a fix mapping."""
         anomaly = AnomalyDetail(
             type=AnomalyType.DISTRIBUTION_DRIFT,
             name="test_table",
@@ -269,7 +271,9 @@ class TestCreateFixForAnomaly:
         
         fix = _create_fix_for_anomaly(anomaly)
         
-        assert fix is None
+        assert fix is not None
+        assert fix.action == FixAction.QUARANTINE_DATA
+        assert "distribution" in fix.description.lower()
 
 
 class TestFixMapping:

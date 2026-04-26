@@ -196,13 +196,15 @@ def check_node_anomalies(
                 name=node_name or node_fqn,
                 depth=depth,
                 entity_id=node_id,
+                entity_type=node_type,  # Store entity type for governance tagging
                 description=f"{anomaly_type.value} detected in {node_type} {node_name}"
             ))
     
     except Exception as e:
-        # Log error but continue traversal
-        # In production, would use proper logging
-        pass
+        # Log error but don't add misleading anomalies
+        # Network/API errors are not data anomalies
+        print(f"Error checking node {node_fqn}: {e}")
+        # Don't add to anomalies list - this would corrupt diagnosis
     
     return anomalies
 
@@ -254,12 +256,15 @@ def check_edge_anomalies(
                 name=pipeline_name or pipeline_fqn,
                 depth=depth,
                 entity_id=pipeline_id,
+                entity_type="pipeline",  # Store entity type for governance tagging
                 description=f"Pipeline {pipeline_name} failed on transformation edge"
             ))
     
     except Exception as e:
-        # Log error but continue traversal
-        pass
+        # Log error but don't add misleading anomalies
+        # Network/API errors are not pipeline failures
+        print(f"Error checking pipeline edge {pipeline_fqn}: {e}")
+        # Don't add to anomalies list - this would corrupt diagnosis
     
     return anomalies
 

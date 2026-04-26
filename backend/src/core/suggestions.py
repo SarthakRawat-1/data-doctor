@@ -29,6 +29,14 @@ FIX_MAPPING = {
     AnomalyType.DATA_QUALITY_FAILURE: {
         "action": FixAction.QUARANTINE_DATA,
         "description_template": "Implement data contract validation to drop anomalous rows in {target}."
+    },
+    AnomalyType.VOLUME_ANOMALY: {
+        "action": FixAction.RERUN_PIPELINE,
+        "description_template": "Investigate unexpected row count change in {target}. Check for data loss or pipeline issues."
+    },
+    AnomalyType.DISTRIBUTION_DRIFT: {
+        "action": FixAction.QUARANTINE_DATA,
+        "description_template": "Investigate distribution changes in {target}. Check for data quality issues or schema changes."
     }
 }
 

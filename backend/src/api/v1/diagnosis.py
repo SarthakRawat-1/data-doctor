@@ -1,6 +1,6 @@
 """Diagnosis endpoints for root cause analysis."""
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status
@@ -15,6 +15,7 @@ from src.core.impact import compute_blast_radius_by_fqn
 from src.core.root_cause import find_root_cause_by_fqn
 from src.core.suggestions import generate_suggested_fixes
 from src.schemas import (
+    AnomalyDetail,  # Added for target anomaly creation
     DemoScenarioResponse,
     DiagnosisRequest,
     DiagnosisResponse,
@@ -89,11 +90,39 @@ async def diagnose_asset(
             )
         
         # Detect anomalies in target asset
+        # Fetch historical versions and test cases for complete detection
+        historical_versions = None
+        test_cases = None
+        
+        if entity_type == "table":
+            try:
+                historical_versions = metadata_client.get_table_versions(entity_id, limit=30)
+            except Exception as e:
+                print(f"Warning: Could not fetch historical versions: {e}")
+            
+            try:
+                test_cases = metadata_client.get_test_case_results(request.target_fqn)
+            except Exception as e:
+                print(f"Warning: Could not fetch test cases: {e}")
+        
         target_anomalies = evaluate_asset_anomalies(
-            metadata_client=metadata_client,
-            entity=target_entity,
-            entity_type=entity_type
+            asset_entity=target_entity,
+            asset_type=entity_type,
+            historical_versions=historical_versions,
+            test_cases=test_cases
         )
+        
+        # Convert target anomalies to AnomalyDetail objects for inclusion in response
+        target_anomaly_details = []
+        for anomaly_type in target_anomalies:
+            target_anomaly_details.append(AnomalyDetail(
+                type=anomaly_type,
+                name=request.target_fqn.split(".")[-1],  # Simple name
+                depth=0,  # Target is at depth 0
+                entity_id=entity_id,
+                entity_type=entity_type,
+                description=f"{anomaly_type.value} detected in target {entity_type}"
+            ))
         
         # Step 2: Perform root cause analysis (upstream BFS)
         root_cause_result = find_root_cause_by_fqn(
@@ -105,6 +134,17 @@ async def diagnose_asset(
         
         primary_cause = root_cause_result.get("primary_root_cause")
         contributing_factors = root_cause_result.get("contributing_factors", [])
+        
+        # Step 2.5: Merge target anomalies with root cause results
+        # If target has anomalies but no upstream root cause found, target IS the root cause
+        if target_anomaly_details and not primary_cause:
+            # Target entity is the root cause
+            primary_cause = target_anomaly_details[0]
+            contributing_factors = target_anomaly_details[1:] + contributing_factors
+        elif target_anomaly_details:
+            # Target has anomalies AND upstream root cause exists
+            # Add target anomalies as contributing factors
+            contributing_factors = target_anomaly_details + contributing_factors
         
         # Step 3: Calculate confidence score
         confidence_score = calculate_confidence_score(
@@ -142,7 +182,7 @@ async def diagnose_asset(
             contributing_factors=contributing_factors,
             impacted_assets=impacted_assets,
             suggested_fixes=suggested_fixes,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_ms=execution_time_ms
         )
         

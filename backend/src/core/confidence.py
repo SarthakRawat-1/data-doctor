@@ -52,8 +52,8 @@ def calculate_confidence_score(
     else:
         score += LOW_SIGNAL_BOOST
     
-    # Distance modifier: immediately upstream is more certain
-    if primary_cause.depth == 1:
+    # Distance modifier: target entity (depth 0) or immediately upstream (depth 1) is more certain
+    if primary_cause.depth <= 1:
         score += DEPTH_ONE_BOOST
     
     # Noise penalty: multiple anomalies reduce certainty
