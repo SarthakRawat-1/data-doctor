@@ -14,6 +14,11 @@ export function Diagnose() {
   const [enhanceWithAi, setEnhanceWithAi] = useState(true);
   const [applyTags, setApplyTags] = useState(false);
   
+  // Multi-tenant support
+  const [useCustomOM, setUseCustomOM] = useState(false);
+  const [omHostPort, setOmHostPort] = useState("");
+  const [omJwtToken, setOmJwtToken] = useState("");
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +54,18 @@ export function Diagnose() {
       return;
     }
 
+    // Validate custom OpenMetadata credentials if enabled
+    if (useCustomOM) {
+      if (!omHostPort.trim()) {
+        setError("Please enter OpenMetadata Host URL");
+        return;
+      }
+      if (!omJwtToken.trim()) {
+        setError("Please enter JWT Token");
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     
@@ -57,6 +74,12 @@ export function Diagnose() {
       upstream_depth: upstreamDepth,
       downstream_depth: downstreamDepth,
     };
+
+    // Add custom OpenMetadata credentials if provided
+    if (useCustomOM) {
+      req.openmetadata_host_port = omHostPort.trim();
+      req.openmetadata_jwt_token = omJwtToken.trim();
+    }
 
     try {
       const res = await diagnose(req, enhanceWithAi, applyTags);
@@ -165,6 +188,53 @@ export function Diagnose() {
             {/* Feature Toggles */}
             <div className="space-y-6">
               <h3 className="label-mono text-[var(--color-text-muted)] border-b border-[var(--color-border)] pb-2">Execution Modules</h3>
+              
+              {/* Custom OpenMetadata Toggle */}
+              <div className="flex items-center justify-between p-6 border border-[var(--color-border)] hover:border-white/30 transition-colors bg-[var(--color-bg-alt)]">
+                <div>
+                  <h4 className="font-bold text-white mb-1">Use Custom OpenMetadata</h4>
+                  <p className="text-sm text-[var(--color-text-muted)]">Connect to your own OpenMetadata instance instead of server default.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseCustomOM(!useCustomOM)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${useCustomOM ? 'bg-purple-500' : 'bg-gray-700'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useCustomOM ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              {/* Custom OpenMetadata Credentials (Conditional) */}
+              {useCustomOM && (
+                <div className="space-y-4 p-6 border border-purple-500/30 bg-purple-500/5">
+                  <div className="space-y-2">
+                    <label htmlFor="omHost" className="block label-mono text-[var(--color-text-muted)] text-xs">OpenMetadata API URL</label>
+                    <input
+                      id="omHost"
+                      type="text"
+                      className="w-full bg-[var(--color-bg-alt)] border border-[var(--color-border)] text-white font-mono text-xs py-3 px-4 focus:outline-none focus:border-purple-500 transition-colors"
+                      placeholder="https://sandbox.open-metadata.org/api"
+                      value={omHostPort}
+                      onChange={(e) => setOmHostPort(e.target.value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="omToken" className="block label-mono text-[var(--color-text-muted)] text-xs">JWT Token</label>
+                    <textarea
+                      id="omToken"
+                      className="w-full bg-[var(--color-bg-alt)] border border-[var(--color-border)] text-white font-mono text-xs py-3 px-4 focus:outline-none focus:border-purple-500 transition-colors resize-none"
+                      placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      rows={3}
+                      value={omJwtToken}
+                      onChange={(e) => setOmJwtToken(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-xs text-purple-400 font-mono">
+                    💡 Get your JWT token from OpenMetadata: Settings → Bots → ingestion-bot
+                  </p>
+                </div>
+              )}
               
               <div className="flex items-center justify-between p-6 border border-[var(--color-border)] hover:border-white/30 transition-colors bg-[var(--color-bg-alt)]">
                 <div>

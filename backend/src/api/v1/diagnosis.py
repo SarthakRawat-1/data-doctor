@@ -44,6 +44,11 @@ async def diagnose_asset(
     6. **Phase 5 (Optional)**: AI-enhance suggestions with context
     7. **Phase 5+ (Optional)**: Apply governance tags to mark unreliable assets
     
+    **Multi-Tenant Support:**
+    - If openmetadata_host_port and openmetadata_jwt_token are provided in request,
+      uses those credentials instead of server defaults
+    - Allows judges/users to test with their own OpenMetadata instances
+    
     **Algorithm (from data_doctor.md Section 10):**
     - Fetch target entity from OpenMetadata
     - Run detection rules on target
@@ -58,14 +63,25 @@ async def diagnose_asset(
     **Phase 4 + 5 + 5+ Implementation**
     
     Args:
-        request: Diagnosis request with target FQN
-        metadata_client: OpenMetadata client (injected)
+        request: Diagnosis request with target FQN and optional OpenMetadata credentials
+        metadata_client: OpenMetadata client (injected, used only if no custom credentials)
         enhance_with_ai: If True, use AI to add context-aware suggestions
         apply_governance_tags: If True, automatically tag assets with governance labels
     """
     start_time = time.time()
     
     try:
+        # Multi-tenant support: Use custom credentials if provided
+        if request.openmetadata_host_port and request.openmetadata_jwt_token:
+            # Create a new client with user-provided credentials
+            from src.core.api_client import OpenMetadataClient
+            custom_client = OpenMetadataClient(
+                host_port=request.openmetadata_host_port,
+                jwt_token=request.openmetadata_jwt_token
+            )
+            custom_client.connect()
+            metadata_client = custom_client
+        
         # Step 1: Fetch target entity and detect anomalies
         # Determine entity type from FQN pattern
         entity_type = _infer_entity_type(request.target_fqn)

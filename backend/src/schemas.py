@@ -54,6 +54,16 @@ class DiagnosisRequest(BaseModel):
         le=10,
         description="Depth for downstream impact analysis"
     )
+    # Multi-tenant support: Optional OpenMetadata credentials
+    openmetadata_host_port: str | None = Field(
+        default=None,
+        description="OpenMetadata API endpoint (e.g., https://your-om.com/api). If not provided, uses server default.",
+        examples=["https://sandbox.open-metadata.org/api", "http://localhost:8585/api"]
+    )
+    openmetadata_jwt_token: str | None = Field(
+        default=None,
+        description="JWT token for OpenMetadata authentication. If not provided, uses server default.",
+    )
 
 
 class DiagnosisResponse(BaseModel):

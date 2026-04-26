@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     
     # Demo Configuration
     DEMO_SCENARIO_FQN: str = Field(
-        default="sample_data.ecommerce_db.shopify.dim_customer",
-        description="Pre-staged FQN for demo scenario"
+        default="sample_mysql_service.ecommerce_sample.dim_customer",
+        description="Pre-staged FQN for demo scenario (matches setup_realistic_demo.py output)"
     )
     
     # Phase 5: AI Enhancement Layer Configuration

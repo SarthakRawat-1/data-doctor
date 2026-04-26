@@ -42,6 +42,9 @@ export interface DiagnosisRequest {
   target_fqn: string;
   upstream_depth: number;
   downstream_depth: number;
+  // Multi-tenant support: Optional OpenMetadata credentials
+  openmetadata_host_port?: string;
+  openmetadata_jwt_token?: string;
 }
 
 export interface DiagnosisResponse {

@@ -27,11 +27,23 @@ class OpenMetadataClient:
     
     Uses the OpenMetadata class with JWT authentication (v1.12+).
     Provides methods for fetching tables, pipelines, lineage, and health checks.
+    
+    Supports both:
+    - Server-configured credentials (from .env)
+    - User-provided credentials (multi-tenant mode)
     """
     
-    def __init__(self):
-        """Initialize the OpenMetadata client."""
+    def __init__(self, host_port: str | None = None, jwt_token: str | None = None):
+        """
+        Initialize the OpenMetadata client.
+        
+        Args:
+            host_port: Optional OpenMetadata API endpoint (overrides settings)
+            jwt_token: Optional JWT token (overrides settings)
+        """
         self._client: OpenMetadata | None = None
+        self._host_port = host_port or settings.OPENMETADATA_HOST_PORT
+        self._jwt_token = jwt_token or settings.OPENMETADATA_JWT_TOKEN
     
     def connect(self) -> None:
         """
@@ -46,10 +58,10 @@ class OpenMetadataClient:
         try:
             # Create connection configuration
             server_config = OpenMetadataConnection(
-                hostPort=settings.OPENMETADATA_HOST_PORT,
+                hostPort=self._host_port,
                 authProvider=AuthProvider.openmetadata,
                 securityConfig=OpenMetadataJWTClientConfig(
-                    jwtToken=settings.OPENMETADATA_JWT_TOKEN
+                    jwtToken=self._jwt_token
                 ),
             )
             
@@ -63,7 +75,7 @@ class OpenMetadataClient:
         except Exception as e:
             self._client = None
             raise OpenMetadataConnectionError(
-                f"Failed to connect to OpenMetadata at {settings.OPENMETADATA_HOST_PORT}: {e}"
+                f"Failed to connect to OpenMetadata at {self._host_port}: {e}"
             )
     
     def health_check(self) -> bool:
