@@ -8,7 +8,7 @@
 [![React](https://img.shields.io/badge/React-19.2.5-61dafb)](https://reactjs.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange)](LICENSE)
 
-[Watch Demo Video](https://youtube.com/placeholder) | [Documentation](./docs/) | [Quick Start](#quick-start-5-minutes)
+[Watch Demo Video](https://youtu.be/KNUAE1Yt_Fg) | [Documentation](./docs/) | [Quick Start](#quick-start-5-minutes)
 
 ---
 
