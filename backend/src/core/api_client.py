@@ -78,6 +78,16 @@ class OpenMetadataClient:
                 f"Failed to connect to OpenMetadata at {self._host_port}: {e}"
             )
     
+    def _ensure_connected(self) -> None:
+        """
+        Ensure the client is connected. Connects lazily if not already connected.
+        
+        Raises:
+            OpenMetadataConnectionError: If connection fails
+        """
+        if self._client is None:
+            self.connect()
+    
     def health_check(self) -> bool:
         """
         Check if OpenMetadata connection is healthy.
@@ -91,7 +101,9 @@ class OpenMetadataClient:
             OpenMetadataConnectionError: If health check fails after reconnection attempt
         """
         if self._client is None:
-            return False
+            self._ensure_connected()
+            if self._client is None:
+                return False
         
         try:
             return self._client.health_check()
@@ -129,8 +141,7 @@ class OpenMetadataClient:
         Raises:
             EntityNotFoundError: If table not found
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             # Use get_by_name method
@@ -164,8 +175,7 @@ class OpenMetadataClient:
         Raises:
             EntityNotFoundError: If pipeline not found
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             # Use client's get method directly
@@ -214,8 +224,7 @@ class OpenMetadataClient:
         Raises:
             OpenMetadataConnectionError: If lineage fetch fails
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             # Clamp depths to API limits (max 3)
@@ -250,8 +259,7 @@ class OpenMetadataClient:
         Returns:
             Lineage graph
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             # Clamp depths to API limits
@@ -280,8 +288,7 @@ class OpenMetadataClient:
         Returns:
             Search results with entity ID and metadata
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             # Build URL with query parameters
@@ -308,8 +315,7 @@ class OpenMetadataClient:
         Returns:
             List of table versions (newest first)
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             response = self._client.client.get(
@@ -341,8 +347,7 @@ class OpenMetadataClient:
         Returns:
             List of test case results
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             # URL encode the entity link
@@ -389,8 +394,7 @@ class OpenMetadataClient:
         
         Reference: https://docs.open-metadata.org/latest/sdk/python/ingestion/tags
         """
-        if self._client is None:
-            raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
+        self._ensure_connected()
         
         try:
             # Import entity classes
@@ -456,17 +460,17 @@ def get_metadata_client() -> OpenMetadataClient:
     Dependency injection function for FastAPI.
     
     Returns a singleton OpenMetadata client instance.
-    Creates and connects on first call, reuses thereafter.
+    Creates client on first call, but does NOT connect until actually used.
+    This allows the server to start even if OpenMetadata is not available.
+    
+    Connection happens lazily when methods are called.
     """
     global _client_instance
     
     if _client_instance is None:
         _client_instance = OpenMetadataClient()
-        try:
-            _client_instance.connect()
-        except Exception as e:
-            # Reset instance on connection failure
-            _client_instance = None
-            raise OpenMetadataConnectionError(f"Failed to initialize OpenMetadata client: {e}")
+        # Don't connect here - let it connect lazily when methods are called
+        # This allows the server to start even if OpenMetadata is not available
     
     return _client_instance
+
