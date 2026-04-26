@@ -151,10 +151,15 @@ def get_database_name(dataset_id: str, scenario_id: str) -> str:
 
 
 def get_fqn(dataset_id: str, scenario_id: str, table_name: str) -> str:
-    """Get the FQN for a specific table in a dataset-scenario combination."""
+    """Get the FQN for a specific table in a dataset-scenario combination.
+    
+    MySQL uses 4-part FQN: service.database.schema.table
+    where schema = database name (MySQL doesn't have separate schemas)
+    """
     service_name = get_service_name(dataset_id, scenario_id)
     database_name = get_database_name(dataset_id, scenario_id)
-    return f"{service_name}.{database_name}.{table_name}"
+    # MySQL FQN format: service.database.schema.table (schema = database)
+    return f"{service_name}.{database_name}.{database_name}.{table_name}"
 
 SCENARIOS_CONFIG = [
     {

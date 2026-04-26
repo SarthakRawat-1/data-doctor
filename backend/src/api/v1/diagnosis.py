@@ -86,9 +86,12 @@ async def diagnose_asset(
         # Determine entity type from FQN pattern
         entity_type = _infer_entity_type(request.target_fqn)
         
-        # Fetch entity
+        # Fetch entity with all necessary fields for detection
         if entity_type == "table":
-            target_entity = metadata_client.get_table_by_fqn(request.target_fqn)
+            target_entity = metadata_client.get_table_by_fqn(
+                request.target_fqn,
+                fields=["profile", "testSuite", "changeDescription", "owners", "tags"]
+            )
         elif entity_type == "pipeline":
             target_entity = metadata_client.get_pipeline_by_fqn(request.target_fqn)
         else:

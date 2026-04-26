@@ -222,15 +222,9 @@ class OpenMetadataClient:
             upstream_depth = min(upstream_depth, 3)
             downstream_depth = min(downstream_depth, 3)
             
-            # Use client's get method for lineage
-            # Note: upstreamDepth and downstreamDepth are query parameters, not body
-            response = self._client.client.get(
-                f"/lineage/{entity_type}/{entity_id}",
-                params={
-                    "upstreamDepth": upstream_depth,
-                    "downstreamDepth": downstream_depth
-                }
-            )
+            # Build URL with query parameters
+            url = f"/lineage/{entity_type}/{entity_id}?upstreamDepth={upstream_depth}&downstreamDepth={downstream_depth}"
+            response = self._client.client.get(url)
             
             return response
             
@@ -264,15 +258,9 @@ class OpenMetadataClient:
             upstream_depth = min(upstream_depth, 3)
             downstream_depth = min(downstream_depth, 3)
             
-            # Use client's get method for lineage by FQN
-            # Note: upstreamDepth and downstreamDepth are query parameters, not body
-            response = self._client.client.get(
-                f"/lineage/{entity_type}/name/{fqn}",
-                params={
-                    "upstreamDepth": upstream_depth,
-                    "downstreamDepth": downstream_depth
-                }
-            )
+            # Build URL with query parameters
+            url = f"/lineage/{entity_type}/name/{fqn}?upstreamDepth={upstream_depth}&downstreamDepth={downstream_depth}"
+            response = self._client.client.get(url)
             
             return response
             
@@ -296,17 +284,9 @@ class OpenMetadataClient:
             raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
         
         try:
-            # Use client's get method for search
-            # Note: Search API expects query parameters, not body
-            response = self._client.client.get(
-                "/search/query",
-                params={
-                    "q": fqn,
-                    "index": index,
-                    "from": 0,
-                    "size": 1
-                }
-            )
+            # Build URL with query parameters
+            url = f"/search/query?q={fqn}&index={index}&from=0&size=1"
+            response = self._client.client.get(url)
             
             return response
             
@@ -365,21 +345,17 @@ class OpenMetadataClient:
             raise OpenMetadataConnectionError("Client not configured. Call connect() first.")
         
         try:
-            # Search for test cases associated with this table
-            response = self._client.client.get(
-                "/dataQuality/testCases",
-                params={
-                    "entityLink": f"<#E::table::{table_fqn}>",
-                    "fields": "testCaseResult,testDefinition"
-                }
-            )
+            # URL encode the entity link
+            from urllib.parse import quote
+            entity_link = f"<#E::table::{table_fqn}>"
+            encoded_link = quote(entity_link, safe='')
             
+            # Build URL with query parameters
+            url = f"/dataQuality/testCases?entityLink={encoded_link}&fields=testCaseResult,testDefinition"
+            response = self._client.client.get(url)
+            
+            # Extract test cases from response
             test_cases = response.get("data", [])
-            
-            # Warn if response structure is unexpected
-            if not test_cases and response:
-                print(f"Warning: Unexpected response structure from get_test_case_results. "
-                      f"Expected 'data' key, got keys: {list(response.keys())}")
             
             return test_cases
             
@@ -435,12 +411,35 @@ class OpenMetadataClient:
             if not entity_class:
                 raise ValueError(f"Unsupported entity type for tagging: {entity_type}")
             
-            # Use SDK's patch_tag method
-            self._client.patch_tag(
-                entity=entity_class,
-                entity_id=entity_id,
-                tag_fqn=tag_fqn
+            # Use SDK's patch_tag method with correct parameter name
+            from metadata.generated.schema.type.tagLabel import (
+                TagLabel, 
+                TagSource, 
+                LabelType,
+                State
             )
+            
+            # Get the entity first
+            entity_obj = self._client.get_by_id(entity_class, entity_id)
+            
+            # Create tag label with all required fields
+            tag_label = TagLabel(
+                tagFQN=tag_fqn,
+                source=TagSource.Classification,
+                labelType=LabelType.Manual,
+                state=State.Confirmed
+            )
+            
+            # Add tag to entity's tags list
+            if not entity_obj.tags:
+                entity_obj.tags = []
+            
+            # Check if tag already exists
+            if not any(t.tagFQN == tag_fqn for t in entity_obj.tags):
+                entity_obj.tags.append(tag_label)
+                
+                # Update the entity
+                self._client.patch(entity_class, entity_obj)
             
             return True
             

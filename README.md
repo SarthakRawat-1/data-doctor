@@ -57,7 +57,7 @@ Data pipeline failures cost companies **millions in lost revenue and productivit
 ## Architecture
 
 <div align="center">
-  <img src="frontend/public/simplified-architecture-diagram.png" alt="Data Doctor Architecture" width="800"/>
+  <img src="frontend/public/architecture-diagram.png" alt="Data Doctor Architecture" width="800"/>
 </div>
 
 ---
@@ -97,7 +97,7 @@ confidence = BASE_SCORE (0.5)
 ### **Hybrid AI Enhancement**
 
 - **Core detection**: Deterministic, rule-based (transparent)
-- **AI enhancement**: Formatting only (never decides)
+- **AI-powered suggestions**: Groq LLM generates actionable fixes, SQL scripts, and detailed reports
 - **Groq LLM**: Generates SQL scripts, Markdown reports, and Slack notifications
 - **Slack integration**: Final diagnostic reports are automatically sent to users via Slack with severity-colored alerts
 - **Graceful degradation**: Falls back to base suggestions if AI fails

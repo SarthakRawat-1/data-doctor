@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # API Configuration
     API_V1_PREFIX: str = "/api/v1"
     # For local development:
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "https://data-doctor-alpha.vercel.app/"]
     # For deployment, add your domain:
     # CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "https://your-domain.com", "http://your-server-ip:3000"]
     
